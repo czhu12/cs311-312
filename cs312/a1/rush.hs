@@ -93,7 +93,7 @@ isVertical letter board
     x        = fst firstPos
     y        = snd firstPos
 
-isHorizontal letter board = not (isVertial letter board)
+isHorizontal letter board = not (isVertical letter board)
 
 firstLetterPos letter board = firstLetterPos' letter board (0, 0)
 
