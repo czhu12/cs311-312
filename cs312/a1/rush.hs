@@ -35,13 +35,29 @@ generateStatesForLetter letter board
   where 
     firstPos = firstLetterPos letter board
 
+-- How should we approach this? If isVertical, then we should find the top and bottom bounds of the object.
+-- if is not vertical then we should find the left and right bounds. 
+-- To move right: we swap the value of furthest left with 1 + furthest right
+-- To move left: we swap the value of furthest right with 1 + furthest left
+-- To move up: we swap the value of furthest down with 1 + furthest up
+-- To move down: we swap the value of furthest up with 1 + furthest down
+
+-- Swap Function:
+-- Basically regenerate board with new values
+swap board pos1 pos2 = secondBoard
+  where 
+    firstLetter = letterAtPosition (fst pos1) (snd pos1) board
+    secondLetter = letterAtPosition (fst pos2) (snd pos2) board
+    firstBoard = replaceLetter pos1 firstLetter board 
+    secondBoard = replaceLetter pos1 secondLetter firstBoard 
 -- firstPos means that the rest of the car must be further down or further right
 -- To move left, we should check if the place immediately before the firstPos is empty, if so
 -- we find the end of the car and set that to a '_'
+
 moveLeftTry letter board firstPos
   | and -- and (not out of bounds) (is free)
       (not (isOutOfBounds ((fst firstPos) - 1) (snd firstPos) board))
-      (letterAtPosition (fst firstPos) (snd firstPos) board)
+      ((letterAtPosition ((fst firstPos) -1) (snd firstPos) board) == EMPTY)
               = moveLeft letter board firstPos
   | otherwise = []
 
@@ -56,10 +72,6 @@ moveLeft letter board firstPos
 
 -- Ok so you left off here.... to move left you need to replace the position immediately left of the firstPos with the letter at firstPos, then you need to find the farest right of the letters of firstPos and replace that with '_'
 
-replaceLetter at withLetter board 
-  | (snd at) == 0         = replaceNth (fst at) withLetter (head board):(tail board)
-  | otherwise             = (head board):(replaceLetter at withLetter (tail board))
-
 moveRightTry letter board firstPos
   | 
 
@@ -68,6 +80,7 @@ moveUpTry letter board firstPos
 
 moveDownTry letter board firstPos
   |
+
 
 isVertical letter board
   | (letterAtPosition x y + 1 board) == letter        = True
@@ -100,8 +113,11 @@ letterAtPosition x y board = board !! y !! x
 
 isOutOfBounds x y board = or ((length board) >= y) ((length (board!!0)) >= x)
 
-
-
 replaceNth n newVal (x:xs)
      | n == 0 = newVal:xs
      | otherwise = x:replaceNth (n-1) newVal xs
+
+replaceLetter at withLetter board 
+  | (snd at) == 0         = replaceNth (fst at) withLetter (head board):(tail board)
+  | otherwise             = (head board):(replaceLetter at withLetter (tail board))
+
