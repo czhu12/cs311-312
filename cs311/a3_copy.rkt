@@ -93,7 +93,7 @@
                                 (helper t env)
                                 (helper e env))]
                [with (binding body) (error "preprocessor is fucked")]
-               [fun (args body) (closureV (first args) (helper body env) env)]
+               [fun (args body) (closureV (first args) body env)]
                [app (fun-expr args) (local [(define arg (first args))
                                             (define the-function (helper fun-expr env))
                                             (define arg-value (helper arg env))
@@ -103,8 +103,6 @@
                                       (helper the-body (extend-env fun-env param-name arg-value)))]))]
     (helper expr (mtEnv))))
 
-(test (run '(with (x 10) (+ x x))) (numV 20))
-(test (run '(with (f (fun (x y) (+ x y))) (f 10 20))) (numV 30))
 
 ;; run : sexp -> CFWAE-Value
 ;; Consumes an sexp and passes it through parsing, pre-processing,
@@ -171,7 +169,11 @@
 
 (define (lookup-env env id)
   (if (mtEnv? env)
-      (error "go fuck yourself")
+      (error 'lookup-env "Unbound identifier: ~s" id)
       (if (symbol=? (anEnv-name env) id)
           (anEnv-value env)
-          (lookup-env (anEnv-env env)))))
+          (lookup-env (anEnv-env env) id))))
+
+
+(test (run '(with (x 10) (+ x x))) (numV 20))
+(test (run '(with (f (fun (x y) (+ x y))) (f 10 20))) (numV 30))
