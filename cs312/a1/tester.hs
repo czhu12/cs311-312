@@ -1,3 +1,4 @@
+b = ["--A", "--A", "---"]
 swap board pos1 pos2 = secondBoard
   where 
     firstLetter = letterAtPosition (fst pos1) (snd pos1) board

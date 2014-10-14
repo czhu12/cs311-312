@@ -1,3 +1,4 @@
+EMPTY = "-"
 solve board = statesearch [board] (generateGoal board) []
  
 statesearch unexplored path
@@ -22,7 +23,7 @@ generateNewStates board = generateNewStates' board [] (0 0)
 
 generateNewStates' board seenCars pos
   | isOutOfBounds (fst pos) (snd pos) board = []
-  | currentLetter == '_'                    = generateNewStates board seenCars (nextPos pos board)
+  | currentLetter == EMPTY                  = generateNewStates board seenCars (nextPos pos board)
   | not (elem currentLetter seenCars)       = (generateStatesForLetter currentLetter board) 
     ++ generateNewStates board (currentLetter:seenCars) (nextPos pos board)
   | otherwise generateNewStates board (currentLetter:seenCars) (nextPos pos board)
@@ -52,7 +53,7 @@ swap board pos1 pos2 = secondBoard
     secondBoard = replaceLetter pos1 secondLetter firstBoard 
 -- firstPos means that the rest of the car must be further down or further right
 -- To move left, we should check if the place immediately before the firstPos is empty, if so
--- we find the end of the car and set that to a '_'
+-- we find the end of the car and set that to a '-'
 
 moveLeftTry letter board firstPos
   | and -- and (not out of bounds) (is free)
@@ -70,7 +71,7 @@ moveLeft letter board firstPos
     startPosition = (((fst firstPos) - 1) (snd firstPos))
     endPosition = farRightPosition firstPos board
 
--- Ok so you left off here.... to move left you need to replace the position immediately left of the firstPos with the letter at firstPos, then you need to find the farest right of the letters of firstPos and replace that with '_'
+-- Ok so you left off here.... to move left you need to replace the position immediately left of the firstPos with the letter at firstPos, then you need to find the farest right of the letters of firstPos and replace that with '-'
 
 moveRightTry letter board firstPos
   | 
