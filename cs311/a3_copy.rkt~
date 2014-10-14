@@ -44,7 +44,7 @@
      (with (binding id (parse named-expr)) (parse body-expr))]
     [(list 'if cond-expr t-expr f-expr) (if0 (parse cond-expr) (parse t-expr) (parse f-expr))]
     [(list 'fun fun-args fun-body) (fun fun-args (parse fun-body))]
-    [(cons fun-expr args) (app (parse fun-expr) (map parse args))]
+    [(list (list 'fun fun-args fun-body) args-expr) (app (fun fun-args (parse fun-body)) (map parse args-expr))]
     [else (error 'parse "Unable to parse ~s" sexp)]))
 
 (test (parse '(with (x 10) x)) (with (binding 'x (num 10)) (id 'x)))
@@ -73,7 +73,7 @@
                         (app (pre-process f) r-args) 
                         (app (pre-process (app f (rest r-args))) (list (first r-args)))))]))
 
-
+(pre-process (parse '((fun (x y) ( + x y)) (5 6))))
 (test (pre-process (with (binding 'x (num 10)) (id 'x))) (app (fun '(x) (id 'x)) (list (num 10))))
 
 ;; interp : CFWAE -> CFWAE-Value
@@ -93,7 +93,7 @@
                                 (helper t env)
                                 (helper e env))]
                [with (binding body) (error "preprocessor is fucked")]
-               [fun (args body) (closureV (first args) (helper body env) env)]
+               [fun (args body) (closureV (first args) body env)]
                [app (fun-expr args) (local [(define arg (first args))
                                             (define the-function (helper fun-expr env))
                                             (define arg-value (helper arg env))
@@ -104,7 +104,6 @@
     (helper expr (mtEnv))))
 
 (test (run '(with (x 10) (+ x x))) (numV 20))
-(test (run '(with (f (fun (x y) (+ x y))) (f 10 20))) (numV 30))
 
 ;; run : sexp -> CFWAE-Value
 ;; Consumes an sexp and passes it through parsing, pre-processing,
