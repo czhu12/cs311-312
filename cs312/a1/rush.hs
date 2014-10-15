@@ -1,4 +1,4 @@
-EMPTY = "-"
+EMPTY = '-'
 solve board = statesearch [board] (generateGoal board) []
  
 statesearch unexplored path
@@ -36,6 +36,15 @@ generateStatesForLetter letter board
   where 
     firstPos = firstLetterPos letter board
 
+canMove :: (Int, Int) -> Char -> [[Char]] -> Bool
+canMove dir letter board = letterAtPosition (fst checkPos) (snd checkPos) board == EMPTY
+  where 
+    firstPos = firstLetterPos letter board
+    x = (fst firstPos)
+    y = (snd firstPos)
+    dirX = (fst dir)
+    dirY = (snd dir)
+    checkPos = ((x + dirX), (y + dirY))
 -- How should we approach this? If isVertical, then we should find the top and bottom bounds of the object.
 -- if is not vertical then we should find the left and right bounds. 
 -- To move right: we swap the value of furthest left with 1 + furthest right
