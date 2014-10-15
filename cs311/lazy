@@ -64,12 +64,11 @@
     [id (name) (id name)]
     [if0 (c t f) (if c t f)]
     [fun (args body) (cond [(= 1 (length args)) (fun args body)]
-                
                            [(fun (list (first args))
                               (pre-process (fun (rest args) body)))])]
-    [app (f args) (cond [(= 1 (length args)) (app (pre-process f) args)]
-                        
-                        [else (app (pre-process (app f (take args (- (length args) 1)))) (list (last args)))])]))
+    [app (f args) (cond [(= 1 (length args)) (app (pre-process f) args)]                        
+                        [else (app (pre-process (app f (take args (- (length args) 1)))) 
+                                   (list (last args)))])]))
 
 (define (f) (+ 10 10))
 
@@ -86,7 +85,7 @@
                [num (n) (numV n)]
                [binop (op lhs rhs) 
                       (compute-nums op (real-interp lhs env) (real-interp rhs env))]
-               [id (name) (local [(define result (lookup-env env name))]
+               [id (name) (local [(define result (strict (lookup-env env name)))]
                             (if result
                                 result
                                 (error 'interp "Unbound identifier: ~s" name)))]
@@ -95,7 +94,6 @@
                                 (real-interp e env))]
                [with (binding body) (error "preprocessor is fucked")]
                [fun (args body) (cond [(= 1 (length args)) (closureV (first args) body env)]
-                                      [(= 0 (length args)) (thunkV body env)]
                                       [else (error 'interp "Should only have one or zero arguments to a function in interp")])]
                [app (fun-expr args) (local [(define arg (first args))
                                             (define the-function (strict (real-interp fun-expr env)))
@@ -201,3 +199,11 @@
 (test (run '(with (f (fun (x y z) (- x (+ y z)))) (f 1 2 3))) (numV -4))
 (test (run '((fun (x y z) (- x (+ y z))) 1 2 3)) (numV -4))
 (test (run '(with (f (undef x)) 4)) (numV 4))
+
+(test (run '(with (x ((fun (x y) (+ x y)) 3 4)) x)) (numV 7))
+(test (run '(with (apply (fun (f x) (f x))) 
+                  (apply (fun (a) (+ a 1)) 3))) (numV 4))
+
+
+(test (run '(with (apply (fun (f x y) (f x y))) 
+                  (apply (fun (a b) (+ a b)) 3 4))) (numV 7))
