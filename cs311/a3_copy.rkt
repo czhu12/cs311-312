@@ -68,7 +68,7 @@
                            [(= 0 (length args)) (fun empty body)]
                            [(fun (list (first args))
                               (pre-process (fun (rest args) body)))])]
-    [app (f args) (cond [(= 1 (length args)) (app (pre-process f) args)]
+    [app (f args) (cond [(= 1 (length args)) (app (pre-process f) (list (pre-process (first args))))]
                         [(= 0 (length args)) (app (pre-process f) empty)]
                         [else (app (pre-process (app f (take args (- (length args) 1)))) (list (last args)))])]))
 
@@ -98,16 +98,18 @@
                                       [else (error 'interp "Should only have one or zero arguments to a function in interp")])]
                [app (fun-expr args) (if (= 0 (length args)) 
                                         (local [(define the-thunk (helper fun-expr env))
+                                                (define type-check (if (thunkV? the-thunk) 'noerror (error "fucked off")))
                                                 (define thunk-body (thunkV-body the-thunk))
                                                 (define thunk-env (thunkV-env the-thunk))]
                                           (helper thunk-body thunk-env))
                                         (local [(define arg (first args))
                                             (define the-function (helper fun-expr env))
+                                            (define type-check (if (closureV? the-function) 'noerror (error "fucked off")))
                                             (define arg-value (helper arg env))
                                             (define fun-env (closureV-env the-function))
                                             (define the-body (closureV-body the-function))
                                             (define param-name (closureV-param the-function))]
-                                      (helper the-body (extend-env fun-env param-name arg-value))))]))]
+                                          (helper the-body (extend-env fun-env param-name arg-value))))]))]
     (helper expr (mtEnv))))
 
 
@@ -189,8 +191,11 @@
 (define (eq a b)
   (= (numV-n a) (numV-n b)))
 
+
 (define (compute-nums exp num1 num2)
-  (numV (exp (numV-n num1) (numV-n num2))))
+  (if (and (numV? num1) (numV? num2)) 
+      (numV (exp (numV-n num1) (numV-n num2)))
+      (error "Passed invalid numbers")))
 
 (test (compute-nums - (numV 3) (numV 4)) (numV -1))
 (test (compute-nums + (numV 3) (numV 4)) (numV 7))
