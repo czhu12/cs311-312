@@ -45,6 +45,7 @@
     [(list 'fun fun-args fun-body) (fun fun-args (parse fun-body))]
     [(list 'fun fun-body) (fun empty (parse fun-body))]
     [(list (and (? symbol?) (? ((curry hash-has-key?) exp-map)) op) lhs rhs) (binop (hash-ref exp-map op) (parse lhs) (parse rhs))]
+    ;;[(list (list 'fun fun-expr)) (app (parse fun-expr) empty)]
     [(cons fun-expr args) (app (parse fun-expr) (map parse args))]
     [else (error 'parse "Unable to parse ~s" sexp)]))
 
@@ -67,12 +68,11 @@
                            [(= 0 (length args)) (fun empty body)]
                            [(fun (list (first args))
                               (pre-process (fun (rest args) body)))])]
-    [app (f args) (local [(define r-args (reverse args))] ;; we need to reverse the args in order to apply them in the correct order.
-                    (if (= 1 (length args)) 
-                        (app (pre-process f) args)
-                        (app (pre-process (app f (take args (- (length args) 1)))) (list (last args)))))]))
+    [app (f args) (cond [(= 1 (length args)) (app (pre-process f) args)]
+                        [(= 0 (length args)) (app (pre-process f) empty)]
+                        [else (app (pre-process (app f (take args (- (length args) 1)))) (list (last args)))])]))
 
-
+(define (f) (+ 10 10))
 
 
 ;; interp : CFWAE -> CFWAE-Value
@@ -96,14 +96,41 @@
                [fun (args body) (cond [(= 1 (length args)) (closureV (first args) body env)]
                                       [(= 0 (length args)) (thunkV body env)]
                                       [else (error 'interp "Should only have one or zero arguments to a function in interp")])]
-               [app (fun-expr args) (local [(define arg (first args))
+               [app (fun-expr args) (if (= 0 (length args)) 
+                                        (local [(define the-thunk (helper fun-expr env))
+                                                (define thunk-body (thunkV-body the-thunk))
+                                                (define thunk-env (thunkV-env the-thunk))]
+                                          (helper thunk-body thunk-env))
+                                        (local [(define arg (first args))
                                             (define the-function (helper fun-expr env))
                                             (define arg-value (helper arg env))
                                             (define fun-env (closureV-env the-function))
                                             (define the-body (closureV-body the-function))
                                             (define param-name (closureV-param the-function))]
-                                      (helper the-body (extend-env fun-env param-name arg-value)))]))]
+                                      (helper the-body (extend-env fun-env param-name arg-value))))]))]
     (helper expr (mtEnv))))
+
+
+
+;[app (fun-expr args) (local [(define arg (if (= 0 (length args))
+;                                                            empty
+;                                                            (first args)))
+;                                            (define the-function (if (= 0 (length args)) (helper expr env) (helper fun-expr env)))
+;                                            (define arg-value (if (= 0 (length args)) 
+;                                                                  'undefined 
+;                                                                  (helper arg env)))
+;                                            (define fun-env (if (= 0 (length args)) 
+;                                                                (thunkV-env the-function) 
+;                                                                (closureV-env the-function)))
+;                                            (define the-body (if (= 0 (length args)) 
+;                                                                 (thunkV-body the-function) 
+;                                                                 (closureV-body the-function)))
+;                                            (define param-name (if (= 0 (length args)) 
+;                                                                   'undefined
+;                                                                   (closureV-param the-function)))]
+;                                      (if (= 0 (length args)) 
+;                                          (helper the-body fun-env) 
+;                                          (helper the-body (extend-env fun-env param-name arg-value))))]
 
 ;; run : sexp -> CFWAE-Value
 ;; Consumes an sexp and passes it through parsing, pre-processing,
@@ -190,4 +217,7 @@
 (test (run '(with (f (fun (x y) (+ x y))) (f 10 20))) (numV 30))
 (test (run '(with (f (fun (x y z) (- x (+ y z)))) (f 1 2 3))) (numV -4))
 (test (run '((fun (x y z) (- x (+ y z))) 1 2 3)) (numV -4))
+
+;; Thunk test
+(test (run '((fun (+ 10 10)))) (numV 20))
 
