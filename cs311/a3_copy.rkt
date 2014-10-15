@@ -43,8 +43,9 @@
      (with (binding id (parse named-expr)) (parse body-expr))]
     [(list 'if cond-expr t-expr f-expr) (if0 (parse cond-expr) (parse t-expr) (parse f-expr))]
     [(list 'fun fun-args fun-body) (fun fun-args (parse fun-body))]
+    [(list 'fun fun-body) (fun empty (parse fun-body))]
+    [(list (and (? symbol?) (? ((curry hash-has-key?) exp-map)) op) lhs rhs) (binop (hash-ref exp-map op) (parse lhs) (parse rhs))]
     [(cons fun-expr args) (app (parse fun-expr) (map parse args))]
-    [(list op lhs rhs) (binop (hash-ref exp-map op) (parse lhs) (parse rhs))]
     [else (error 'parse "Unable to parse ~s" sexp)]))
 
 ;; pre-process : CFWAE -> CFWAE
@@ -62,14 +63,14 @@
                               (list (pre-process (binding-named-expr binding))))]
     [id (name) (id name)]
     [if0 (c t f) (if c t f)]
-    [fun (args body) (if (= 1 (length args))
-                         (fun args body)
-                         (fun (list (first args))
-                              (pre-process (fun (rest args) body))))]
+    [fun (args body) (cond [(= 1 (length args)) (fun args body)]
+                           [(= 0 (length args)) (fun empty body)]
+                           [(fun (list (first args))
+                              (pre-process (fun (rest args) body)))])]
     [app (f args) (local [(define r-args (reverse args))] ;; we need to reverse the args in order to apply them in the correct order.
-                    (if (= 1 (length r-args)) 
-                        (app (pre-process f) r-args) 
-                        (app (pre-process (app f (rest r-args))) (list (first r-args)))))]))
+                    (if (= 1 (length args)) 
+                        (app (pre-process f) args)
+                        (app (pre-process (app f (take args (- (length args) 1)))) (list (last args)))))]))
 
 
 
@@ -92,7 +93,9 @@
                                 (helper t env)
                                 (helper e env))]
                [with (binding body) (error "preprocessor is fucked")]
-               [fun (args body) (closureV (first args) body env)]
+               [fun (args body) (cond [(= 1 (length args)) (closureV (first args) body env)]
+                                      [(= 0 (length args)) (thunkV body env)]
+                                      [else (error 'interp "Should only have one or zero arguments to a function in interp")])]
                [app (fun-expr args) (local [(define arg (first args))
                                             (define the-function (helper fun-expr env))
                                             (define arg-value (helper arg env))
@@ -101,7 +104,6 @@
                                             (define param-name (closureV-param the-function))]
                                       (helper the-body (extend-env fun-env param-name arg-value)))]))]
     (helper expr (mtEnv))))
-
 
 ;; run : sexp -> CFWAE-Value
 ;; Consumes an sexp and passes it through parsing, pre-processing,
@@ -160,11 +162,13 @@
 (define (eq a b)
   (= (numV-n a) (numV-n b)))
 
-(define (add-nums num1 num2) 
-  (numV (+ (numV-n num1) (numV-n num2))))
-
 (define (compute-nums exp num1 num2)
   (numV (exp (numV-n num1) (numV-n num2))))
+
+(test (compute-nums - (numV 3) (numV 4)) (numV -1))
+(test (compute-nums + (numV 3) (numV 4)) (numV 7))
+(test (compute-nums * (numV 3) (numV 4)) (numV 12))
+(test (compute-nums / (numV 8) (numV 4)) (numV 2))
 
 (define (extend-env env id value)
   (anEnv id value env))
@@ -175,10 +179,15 @@
       (if (symbol=? (anEnv-name env) id)
           (anEnv-value env)
           (lookup-env (anEnv-env env) id))))
+(test (lookup-env (anEnv 'y (numV 2) (anEnv 'x (numV 1) (mtEnv))) 'y) (numV 2))
+(test (lookup-env (anEnv 'y (numV 2) (anEnv 'x (numV 1) (mtEnv))) 'x) (numV 1))
 
 
 (test (parse '(with (x 10) x)) (with (binding 'x (num 10)) (id 'x)))
 (test (pre-process (with (binding 'x (num 10)) (id 'x))) (app (fun '(x) (id 'x)) (list (num 10))))
+(test (run '(- 10 (+ 20 30))) (numV -40))
 (test (run '(with (x 10) (+ x x))) (numV 20))
 (test (run '(with (f (fun (x y) (+ x y))) (f 10 20))) (numV 30))
 (test (run '(with (f (fun (x y z) (- x (+ y z)))) (f 1 2 3))) (numV -4))
+(test (run '((fun (x y z) (- x (+ y z))) 1 2 3)) (numV -4))
+
