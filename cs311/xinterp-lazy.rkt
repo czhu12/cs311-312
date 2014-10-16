@@ -164,10 +164,8 @@
 ;      (parse '{fun {x} {+ {if0 0 {+ 2 1} 3} x}}))
 
 (define (eq a b)
-   (if (and (numV? a) (numV? b))
-     (= (numV-n a) (numV-n b))
-     (error "illegal argument")))
- 
+  (= (numV-n a) (numV-n b)))
+
 (define (compute-nums exp num1 num2)
   (local [(define val1 (strict num1))
           (define val2 (strict num2))] 

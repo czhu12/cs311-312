@@ -41,7 +41,7 @@
                        named-expr)
            body-expr)
      (with (binding id (parse named-expr)) (parse body-expr))]
-    [(list 'if cond-expr t-expr f-expr) (if0 (parse cond-expr) (parse t-expr) (parse f-expr))]
+    [(list 'if0 cond-expr t-expr f-expr) (if0 (parse cond-expr) (parse t-expr) (parse f-expr))]
     [(list 'fun fun-args fun-body) (fun fun-args (parse fun-body))]
     [(list 'fun fun-body) (fun empty (parse fun-body))]
     [(list (and (? symbol?) (? ((curry hash-has-key?) exp-map)) op) lhs rhs) (binop (hash-ref exp-map op) (parse lhs) (parse rhs))]
@@ -63,17 +63,15 @@
                                    (pre-process body)) 
                               (list (pre-process (binding-named-expr binding))))]
     [id (name) (id name)]
-    [if0 (c t f) (if c t f)]
+    [if0 (c t f) (if0 c t f)]
     [fun (args body) (cond [(= 1 (length args)) (fun args body)]
                            [(= 0 (length args)) (fun empty body)]
                            [(fun (list (first args))
                               (pre-process (fun (rest args) body)))])]
     [app (f args) (cond [(= 1 (length args)) (app (pre-process f) (list (pre-process (first args))))]
                         [(= 0 (length args)) (app (pre-process f) empty)]
-                        [else (app (pre-process (app f (take args (- (length args) 1)))) (list (last args)))])]))
-
-(define (f) (+ 10 10))
-
+                        [else (app (pre-process (app (pre-process f) (take args (- (length args) 1)))) 
+                                   (list (pre-process (last args))))])]))
 
 ;; interp : CFWAE -> CFWAE-Value
 ;; This procedure interprets the given CFWAE and produces a result 
@@ -111,28 +109,6 @@
                                             (define param-name (closureV-param the-function))]
                                           (helper the-body (extend-env fun-env param-name arg-value))))]))]
     (helper expr (mtEnv))))
-
-
-
-;[app (fun-expr args) (local [(define arg (if (= 0 (length args))
-;                                                            empty
-;                                                            (first args)))
-;                                            (define the-function (if (= 0 (length args)) (helper expr env) (helper fun-expr env)))
-;                                            (define arg-value (if (= 0 (length args)) 
-;                                                                  'undefined 
-;                                                                  (helper arg env)))
-;                                            (define fun-env (if (= 0 (length args)) 
-;                                                                (thunkV-env the-function) 
-;                                                                (closureV-env the-function)))
-;                                            (define the-body (if (= 0 (length args)) 
-;                                                                 (thunkV-body the-function) 
-;                                                                 (closureV-body the-function)))
-;                                            (define param-name (if (= 0 (length args)) 
-;                                                                   'undefined
-;                                                                   (closureV-param the-function)))]
-;                                      (if (= 0 (length args)) 
-;                                          (helper the-body fun-env) 
-;                                          (helper the-body (extend-env fun-env param-name arg-value))))]
 
 ;; run : sexp -> CFWAE-Value
 ;; Consumes an sexp and passes it through parsing, pre-processing,
@@ -189,13 +165,17 @@
 ;      (parse '{fun {x} {+ {if0 0 {+ 2 1} 3} x}}))
 
 (define (eq a b)
-  (= (numV-n a) (numV-n b)))
+   (if (and (numV? a) (numV? b))
+     (= (numV-n a) (numV-n b))
+     (error "illegal argument")))
 
 
 (define (compute-nums exp num1 num2)
-  (if (and (numV? num1) (numV? num2)) 
-      (numV (exp (numV-n num1) (numV-n num2)))
-      (error "Passed invalid numbers")))
+  (if (and (numV? num1) (numV? num2))
+        (if (and (equal? / exp) (= 0 (numV-n num2))) 
+            (error "divide by zero error")
+            (numV (exp (numV-n num1) (numV-n num2))))
+            (error "Passed invalid numbers")))
 
 (test (compute-nums - (numV 3) (numV 4)) (numV -1))
 (test (compute-nums + (numV 3) (numV 4)) (numV 7))
@@ -226,3 +206,16 @@
 ;; Thunk test
 (test (run '((fun (+ 10 10)))) (numV 20))
 
+(test (run '(with (apply (fun (f x) (f x))) 
+                  (apply (fun (a) (+ a 1)) 3))) (numV 4))
+
+(test (run '(with (apply (fun (f x y) (f x y))) 
+                  (apply (fun (a b) (+ a b)) 3 4))) (numV 7))
+
+(test (run '(with (apply (fun (x f y) (f x y))) 
+                  (apply 3 (fun (a b) (+ a b)) 4))) (numV 7))
+
+(test/exn (run '(/ 5 0)) "")
+
+(test (run '(if0 0 3 (undef x))) (numV 3))
+(test/exn (run '(if0 1 3 (undef x))) "")
