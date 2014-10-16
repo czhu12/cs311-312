@@ -1,15 +1,14 @@
 empty = '-'
+a = ["---", "--A", "--A", "---"]
 b = ["--A", "--A", "---"]
 c = ["---", "-AA", "---"]
 
-swap board pos1 pos2 = secondBoard
+swap pos1 pos2 board = secondBoard
   where 
     firstLetter = letterAtPosition (fst pos1) (snd pos1) board
     secondLetter = letterAtPosition (fst pos2) (snd pos2) board
     firstBoard = replaceLetter pos2 firstLetter board 
     secondBoard = replaceLetter pos1 secondLetter firstBoard 
-
-letterAtPosition x y board = board !! y !! x
 
 replaceLetter :: (Int, Int) -> Char -> [[Char]] -> [[Char]]
 replaceLetter at withLetter board 
@@ -50,12 +49,62 @@ nextPos pos board
 
 isOutOfBounds x y board = ((length board) <= y) || ((length (board!!0)) <= x)
 
+--canMove :: (Int, Int) -> Char -> [[Char]] -> Bool
+--canMove dir letter board = letterAtPosition (fst checkPos) (snd checkPos) board == empty
+--  where 
+--    firstPos = firstLetterPos letter board
+--    x = (fst firstPos)
+--    y = (snd firstPos)
+--    dirX = (fst dir)
+--    dirY = (snd dir)
+--    checkPos = ((x + dirX), (y + dirY))
+
+-- firstPos should be the first position of the letter in the board and so it must be the 
+-- top of the Car if vertical or the left of the car if horizontal
+-- position range will always be (firstPos, furtherRange)
+positionRange :: (Int, Int) -> Bool -> [[Char]] -> ((Int, Int), (Int, Int))
+positionRange firstPos isVert board 
+  | isVert            = (firstPos, (goDown letter firstPos board))
+  | otherwise         = (firstPos, (goRight letter firstPos board))
+  where letter = letterAtPosition (fst firstPos) (snd firstPos) board
+
+goDown letter pos board 
+  | (isOutOfBounds (fst pos) (snd pos) board) || (letter /= letterHere)     = ((fst pos), (snd pos) - 1)
+  | otherwise                                                               = goDown letter ((fst pos), (snd pos) + 1) board
+  where letterHere = letterAtPosition (fst pos) (snd pos) board
+
+goRight letter pos board 
+  | (isOutOfBounds (fst pos) (snd pos) board) || (letter /= letterHere)     = ((fst pos) - 1, (snd pos))
+  | otherwise                                                               = goRight letter ((fst pos) + 1, (snd pos)) board
+  where letterHere = letterAtPosition (fst pos) (snd pos) board
+
+letterAtPosition x y board 
+  | isOutOfBounds x y board         = error "trying to get letter at out of bounds position"
+  | otherwise                       = board !! y !! x
+
 canMove :: (Int, Int) -> Char -> [[Char]] -> Bool
-canMove dir letter board = letterAtPosition (fst checkPos) (snd checkPos) board == empty
+canMove (x, y) letter board = (not (isOutOfBounds (fst checkPos) (snd checkPos) board)) && letterAtPosition (fst checkPos) (snd checkPos) board == empty
   where 
     firstPos = firstLetterPos letter board
-    x = (fst firstPos)
-    y = (snd firstPos)
-    dirX = (fst dir)
-    dirY = (snd dir)
-    checkPos = ((x + dirX), (y + dirY))
+    isVert = isVertical letter board
+    range = positionRange firstPos isVert board
+    relevantRange = if (x + y) < 0 then (fst range) else (snd range) -- this logic is incorrect
+    checkPos = addPos relevantRange (x, y)
+
+addPos pos1 pos2 = (((fst pos1) + (fst pos2)), ((snd pos1) + (snd pos2)))
+
+move (x, y) letter board
+  | canMove (x, y) letter board                = swap swapPos1 swapPos2 board
+  | otherwise                                  = []
+  where
+    firstPos = firstLetterPos letter board
+    isVert = isVertical letter board
+    range = positionRange firstPos isVert board
+    relevantRange = if y == 0 then (fst range) else (snd range)
+    swapPos1 = if (x + y) > 0 then firstPos else addPos firstPos (x, y)
+    swapPos2 = if (x + y) < 0 then relevantRange else addPos relevantRange (x, y)
+    checkPos = addPos relevantRange (x, y)
+
+generateStatesForLetter letter board
+  | isVertical letter board           = [(move (0, -1) letter board) ,  (move (0, 1) letter board)]
+  | otherwise                         = [(move (-1, 0) letter board) , (move (1, 0) letter board)]
