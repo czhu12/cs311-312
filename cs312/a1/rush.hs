@@ -2,25 +2,31 @@ empty = '-'
 a = ["---", "--A", "--A", "---"]
 b = ["--A", "--A", "---"]
 c = ["----", "-AA-", "----"]
+d = ["B--", "B-A", "--A", "---"]
+goal = ["----", "----", "--XX", "----"]
+nogoal = ["----", "----", "-XX-", "----"]
+nogoal2 = ["----", "XX--", "----", "----"]
+nogoal3 = ["----", "XX-A", "---A", "----"]
 
---solve board = statesearch [board] (generateGoal board) []
+solve board = statesearch [board] []
  
---statesearch unexplored path
---  | null unexplored                     = []
---  | goalFound (head unexplored)    = (head unexplored):path
---  | elem (head unexplored) path         = statesearch (tail unexplored)
---  | (not (null newstates))              = newstates
---  | otherwise                           =
---      statesearch (tail unexplored) path
---    where newstates = statesearch 
---                        (generateNewStates (head unexplored))
---                        ((head unexplored):path)
---
+statesearch unexplored path
+  | null unexplored                     = []
+  | goalFound (head unexplored)    = (head unexplored):path
+  | elem (head unexplored) path         = statesearch (tail unexplored) path
+  | (not (null newstates))              = newstates
+  | otherwise                           =
+      statesearch (tail unexplored) path
+    where newstates = statesearch 
+                        (generateNewStates (head unexplored))
+                        ((head unexplored):path)
 
---generateNewStates board = generateNewStates' board [] (0 0)
+generateNewStates b = removeEmptyLists (generateNewStates' b [] (0, 0))
+
+-- if the end of the target car's x position is equal to the x position of the end of the board that means we win.
 
 generateNewStates' board seenCars pos
-  | isOutOfBounds (fst pos) (snd pos) board = [[[]]]
+  | isOutOfBounds (fst pos) (snd pos) board = []
   | currentLetter == empty                  = generateNewStates' board seenCars (nextPos pos board)
   | not (elem currentLetter seenCars)       = (generateStatesForLetter currentLetter board) ++ (generateNewStates' board (currentLetter:seenCars) (nextPos pos board))
   | otherwise                               = generateNewStates' board seenCars (nextPos pos board)
@@ -81,17 +87,10 @@ nextPos pos board
     x = fst pos
     y = snd pos
 
-isOutOfBounds x y board = ((length board) <= y) || ((length (board!!0)) <= x)
-
---canMove :: (Int, Int) -> Char -> [[Char]] -> Bool
---canMove dir letter board = letterAtPosition (fst checkPos) (snd checkPos) board == empty
---  where 
---    firstPos = firstLetterPos letter board
---    x = (fst firstPos)
---    y = (snd firstPos)
---    dirX = (fst dir)
---    dirY = (snd dir)
---    checkPos = ((x + dirX), (y + dirY))
+isOutOfBounds x y board
+  | x < 0 = True
+  | y < 0 = True
+  | otherwise = ((length board) <= y) || ((length (board!!0)) <= x)
 
 -- firstPos should be the first position of the letter in the board and so it must be the 
 -- top of the Car if vertical or the left of the car if horizontal
@@ -137,3 +136,15 @@ move (x, y) letter board
     relevantRange = (snd range)
     swapPos1 = if (x + y) > 0 then firstPos else addPos firstPos (x, y)
     swapPos2 = if (x + y) > 0 then addPos relevantRange (x, y) else relevantRange 
+
+removeEmptyLists listOfLists 
+  | null listOfLists                      = []
+  | (head listOfLists) == []              = removeEmptyLists (tail listOfLists)
+  | otherwise                             = (head listOfLists) : removeEmptyLists (tail listOfLists)
+
+goalFound state = fst endOfTarget == fst (boundsOfBoard state)
+  where 
+    rangeOfTarget = positionRange (firstLetterPos 'X' state) False state
+    endOfTarget = snd rangeOfTarget
+
+boundsOfBoard board = (length (board!!0) - 1, (length board) - 1)
