@@ -1,3 +1,4 @@
+empty = '-'
 b = ["--A", "--A", "---"]
 c = ["---", "-AA", "---"]
 
@@ -48,3 +49,13 @@ nextPos pos board
     y = snd pos
 
 isOutOfBounds x y board = ((length board) <= y) || ((length (board!!0)) <= x)
+
+canMove :: (Int, Int) -> Char -> [[Char]] -> Bool
+canMove dir letter board = letterAtPosition (fst checkPos) (snd checkPos) board == empty
+  where 
+    firstPos = firstLetterPos letter board
+    x = (fst firstPos)
+    y = (snd firstPos)
+    dirX = (fst dir)
+    dirY = (snd dir)
+    checkPos = ((x + dirX), (y + dirY))
