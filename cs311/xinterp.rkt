@@ -55,6 +55,7 @@
 ;; and with no functions or applications of more than one argument.
 ;; (Assumes the input was successfully produced by parse.)
 
+
 (define (pre-process expr)
   (type-case CFWAE expr
     [num (n) (num n)]
@@ -63,11 +64,11 @@
                                    (pre-process body)) 
                               (list (pre-process (binding-named-expr binding))))]
     [id (name) (id name)]
-    [if0 (c t f) (if0 c t f)]
-    [fun (args body) (cond [(= 1 (length args)) (fun args body)]
-                           [(= 0 (length args)) (fun empty body)]
+    [if0 (c t f) (if0 (pre-process c) (pre-process t) (pre-process f))]
+    [fun (args body) (cond [(= 1 (length args)) (fun args (pre-process body))]
+                           [(= 0 (length args)) (fun empty (pre-process body))]
                            [(fun (list (first args))
-                              (pre-process (fun (rest args) body)))])]
+                              (pre-process (fun (rest args) (pre-process body))))])]
     [app (f args) (cond [(= 1 (length args)) (app (pre-process f) (list (pre-process (first args))))]
                         [(= 0 (length args)) (app (pre-process f) empty)]
                         [else (app (pre-process (app (pre-process f) (take args (- (length args) 1)))) 
@@ -90,7 +91,7 @@
                [if0 (c t e) (if (eq (helper c env) (numV 0))
                                 (helper t env)
                                 (helper e env))]
-               [with (binding body) (error "preprocessor is fucked")]
+               [with (binding body) (error "preprocessor error")]
                [fun (args body) (cond [(= 1 (length args)) (closureV (first args) body env)]
                                       [(= 0 (length args)) (thunkV body env)]
                                       [else (error 'interp "Should only have one or zero arguments to a function in interp")])]
@@ -165,9 +166,9 @@
 ;      (parse '{fun {x} {+ {if0 0 {+ 2 1} 3} x}}))
 
 (define (eq a b)
-   (if (and (numV? a) (numV? b))
-     (= (numV-n a) (numV-n b))
-     (error "illegal argument")))
+	(if (and (numV? a) (numV? b))
+	  (= (numV-n a) (numV-n b))
+		(error "illegal argument")))
 
 
 (define (compute-nums exp num1 num2)
@@ -191,13 +192,94 @@
       (if (symbol=? (anEnv-name env) id)
           (anEnv-value env)
           (lookup-env (anEnv-env env) id))))
+
+
+
 (test (lookup-env (anEnv 'y (numV 2) (anEnv 'x (numV 1) (mtEnv))) 'y) (numV 2))
 (test (lookup-env (anEnv 'y (numV 2) (anEnv 'x (numV 1) (mtEnv))) 'x) (numV 1))
 
+;; PARSE
+
+(test (parse 0) (num 0))
+(test (parse '{+ 1 2}) (binop + (num 1) (num 2)))
+(test (parse '{+ 1 {+ 1 2}}) (binop + (num 1) (binop + (num 1) (num 2))))
+(test (parse '{with {x 1} x}) (with (binding 'x (num 1)) (id 'x)))
+(test (parse '{fun {x} x}) (fun (list 'x) (id 'x)))
+(test (parse '{fun {x} {+ x 1}}) (fun (list 'x) (binop + (id 'x) (num 1))))
+
+(test (parse 1) (num 1))
+(test (parse 2) (num 2))
+
+(test (parse 'x) (id 'x))
+(test (parse 'y) (id 'y))
+
+(test (parse '{+ 1 2}) (binop + (num 1) (num 2)))
+(test (parse '{+ x y}) (binop + (id 'x) (id 'y)))
+
+(test (parse '{with {x 1} 2}) (with (binding 'x (num 1)) (num 2)))
+(test (parse '{with {x y} z}) (with (binding 'x (id 'y)) (id 'z)))  ; these errors are not the parser's job
+
+(test (parse '{fun {x} 1}) (fun (list 'x) (num 1)))
+(test (parse '{fun {y} z}) (fun (list 'y) (id 'z)))
+
+(test (parse '{x y}) (app (id 'x) (list (id 'y))))
+(test (parse '{1 2}) (app (num 1) (list (num 2))))  ; this error is not the parser's job
 
 (test (parse '(with (x 10) x)) (with (binding 'x (num 10)) (id 'x)))
+
+
+
+;; PRE-PROCESS
+
+(test (pre-process (with (binding 'x (num 1)) (id 'x))) 
+      (app (fun (list 'x) (id 'x)) (list (num 1))))
+(test (pre-process (with (binding 'x (binop + (num 1) (num 2))) (id 'x))) 
+      (app (fun (list 'x) (id 'x)) (list (binop + (num 1) (num 2)))))
+
+(test (pre-process (fun (list 'x) (id 'x))) (fun (list 'x) (id 'x)))
+
+(test (pre-process (fun (list 'x 'y) (id 'x)))
+      (fun (list 'x) (fun (list 'y) (id 'x))))
+
+(test (pre-process (fun (list 'x 'y 'z) (id 'x)))
+      (fun (list 'x) (fun (list 'y) (fun (list 'z) (id 'x)))))
+
 (test (pre-process (with (binding 'x (num 10)) (id 'x))) (app (fun '(x) (id 'x)) (list (num 10))))
+
+
+
+;; INTERP
+(test (run 5) (numV 5))
+(test (run '{+ 1 5}) (numV 6))
+(test (run '{- 1 5}) (numV -4))
+(test (run '(fun {x} {+ x 1})) (closureV 'x (binop + (id 'x) (num 1)) (mtEnv)))
+(test (run '(if0 0 1 5)) (numV 1))
+(test (run '(if0 5 1 5)) (numV 5))
+
 (test (run '(- 10 (+ 20 30))) (numV -40))
+(test (run '(with (x 10) (+ x x))) (numV 20))
+(test (run '(with (f (fun (x y) (+ x y))) (f 10 20))) (numV 30))
+(test (run '(with (f (fun (x y z) (- x (+ y z)))) (f 1 2 3))) (numV -4))
+(test (run '((fun (x y z) (- x (+ y z))) 1 2 3)) (numV -4))
+
+(test (run '(with (x ((fun (x y) (+ x y)) 3 4)) x)) (numV 7))
+(test (run '(with (apply (fun (f x) (f x))) 
+                  (apply (fun (a) (+ a 1)) 3))) (numV 4))
+
+
+(test (run '(with (apply (fun (f x y) (f x y))) 
+                  (apply (fun (a b) (+ a b)) 3 4))) (numV 7))
+
+(test (run '(with (apply (fun (x f y) (f x y))) 
+                  (apply 3 (fun (a b) (+ a b)) 4))) (numV 7))
+
+(test/exn (interp (pre-process 
+                   (with (binding (quote add) (fun (quote (x y)) (binop + (id (quote x)) (id (quote y))))) 
+                         (if0 (app (id (quote add)) (list (num 3))) 
+                              (app (id (quote add)) (list (num 2) (num 3))) 
+                              (app (id (quote add)) (list (num 3) (num 4))))))) "")
+
+
 (test (run '(with (x 10) (+ x x))) (numV 20))
 (test (run '(with (f (fun (x y) (+ x y))) (f 10 20))) (numV 30))
 (test (run '(with (f (fun (x y z) (- x (+ y z)))) (f 1 2 3))) (numV -4))
@@ -219,3 +301,4 @@
 
 (test (run '(if0 0 3 (undef x))) (numV 3))
 (test/exn (run '(if0 1 3 (undef x))) "")
+
