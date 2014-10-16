@@ -55,6 +55,7 @@
 ;; and with no functions or applications of more than one argument.
 ;; (Assumes the input was successfully produced by parse.)
 
+
 (define (pre-process expr)
   (type-case CFWAE expr
     [num (n) (num n)]
@@ -63,11 +64,11 @@
                                    (pre-process body)) 
                               (list (pre-process (binding-named-expr binding))))]
     [id (name) (id name)]
-    [if0 (c t f) (if0 c t f)]
-    [fun (args body) (cond [(= 1 (length args)) (fun args body)]
-                           [(= 0 (length args)) (fun empty body)]
+    [if0 (c t f) (if0 (pre-process c) (pre-process t) (pre-process f))]
+    [fun (args body) (cond [(= 1 (length args)) (fun args (pre-process body))]
+                           [(= 0 (length args)) (fun empty (pre-process body))]
                            [(fun (list (first args))
-                              (pre-process (fun (rest args) body)))])]
+                              (pre-process (fun (rest args) (pre-process body))))])]
     [app (f args) (cond [(= 1 (length args)) (app (pre-process f) (list (pre-process (first args))))]
                         [(= 0 (length args)) (app (pre-process f) empty)]
                         [else (app (pre-process (app (pre-process f) (take args (- (length args) 1)))) 

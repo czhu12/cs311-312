@@ -62,15 +62,13 @@
                                    (pre-process body)) 
                               (list (pre-process (binding-named-expr binding))))]
     [id (name) (id name)]
-    [if0 (c t f) (if0 c t f)]
+    [if0 (c t f) (if0 (pre-process c) (pre-process t) (pre-process f))]
     [fun (args body) (cond [(= 1 (length args)) (fun args (pre-process body))]
                            [else (fun (list (first args))
                                       (pre-process (fun (rest args) body)))])]
     [app (f args) (cond [(= 1 (length args)) (app (pre-process f) (list (pre-process (first args))))]                        
                         [else (app (pre-process (app (pre-process f) (take args (- (length args) 1)))) 
                                    (list (pre-process (last args))))])]))
-
-(define (f) (+ 10 10))
 
 
 ;; interp : CFWAE -> CFWAE-Value
@@ -89,9 +87,12 @@
                  (if result
                      result
                      (error 'interp "Unbound identifier: ~s" name)))]
-    [if0 (c t e) (if (eq (strict (real-interp c env)) (numV 0))
-                     (real-interp t env)
-                     (real-interp e env))]
+    [if0 (c t e) (local [(define result (strict (real-interp c env)))]
+                   (if (numV? result)
+                     (if (eq (strict (real-interp c env)) (numV 0))
+                         (real-interp t env)
+                         (real-interp e env))
+                     (error 'real-interp "if0 condition must evaluate to a numV")))]
     [with (binding body) (error "preprocessor is fucked")]
     [fun (args body) (cond [(= 1 (length args)) (closureV (first args) body env)]
                            [else (error 'interp "Should only have one or zero arguments to a function in interp")]
@@ -213,4 +214,9 @@
   
   (test (run '(with (apply (fun (x f y) (f x y))) 
                     (apply 3 (fun (a b) (+ a b)) 4))) (numV 7))
-  
+
+  (test/exn (interp (pre-process 
+                 (with (binding (quote add) (fun (quote (x y)) (binop + (id (quote x)) (id (quote y))))) 
+                       (if0 (app (id (quote add)) (list (num 3))) 
+                            (app (id (quote add)) (list (num 2) (num 3))) 
+                            (app (id (quote add)) (list (num 3) (num 4))))))) "")
