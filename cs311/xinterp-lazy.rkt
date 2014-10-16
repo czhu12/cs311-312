@@ -42,10 +42,13 @@
            body-expr)
      (with (binding id (parse named-expr)) (parse body-expr))]
     [(list 'if0 cond-expr t-expr f-expr) (if0 (parse cond-expr) (parse t-expr) (parse f-expr))]
-    [(list 'fun fun-args fun-body) (fun fun-args (parse fun-body))]
+    [(list 'fun fun-args fun-body) (if (equal? (length fun-args) 0) 
+                                       (error 'parse "functions require at least 1 argument")
+                                       (fun fun-args (parse fun-body)))]
     [(list (and (? symbol?) (? ((curry hash-has-key?) exp-map)) op) lhs rhs) (binop (hash-ref exp-map op) (parse lhs) (parse rhs))]
-    ;;[(list (list 'fun fun-expr)) (app (parse fun-expr) empty)]
-    [(cons fun-expr args) (app (parse fun-expr) (map parse args))]
+    [(cons fun-expr args) (if (equal? (length args) 0)
+                              (error 'parse "you must apply at least 1 argument")
+                              (app (parse fun-expr) (map parse args)))]
     [else (error 'parse "Unable to parse ~s" sexp)]))
 
 ;; pre-process : CFWAE -> CFWAE
@@ -89,11 +92,11 @@
                      (error 'interp "Unbound identifier: ~s" name)))]
     [if0 (c t e) (local [(define result (strict (real-interp c env)))]
                    (if (numV? result)
-                     (if (eq (strict (real-interp c env)) (numV 0))
-                         (real-interp t env)
-                         (real-interp e env))
-                     (error 'real-interp "if0 condition must evaluate to a numV")))]
-    [with (binding body) (error "preprocessor is fucked")]
+                       (if (eq (strict (real-interp c env)) (numV 0))
+                           (real-interp t env)
+                           (real-interp e env))
+                       (error 'real-interp "if0 condition must evaluate to a numV")))]
+    [with (binding body) (error "preprocessor error")]
     [fun (args body) (cond [(= 1 (length args)) (closureV (first args) body env)]
                            [else (error 'interp "Should only have one or zero arguments to a function in interp")]
                            )]
@@ -174,49 +177,108 @@
         (if (and (equal? / exp) (= 0 (numV-n val2))) 
             (error "divide by zero error")
             (numV (exp (numV-n val1) (numV-n val2))))
-            (error "Passed invalid numbers"))))
-  
-  
-  (test (compute-nums - (numV 3) (numV 4)) (numV -1))
-  (test (compute-nums + (numV 3) (numV 4)) (numV 7))
-  (test (compute-nums * (numV 3) (numV 4)) (numV 12))
-  (test (compute-nums / (numV 8) (numV 4)) (numV 2))
-  
-  (define (extend-env env id value)
-    (anEnv id value env))
-  
-  (define (lookup-env env id)
-    (if (mtEnv? env)
-        (error 'lookup-env "Unbound identifier: ~s" id)
-        (if (symbol=? (anEnv-name env) id)
-            (anEnv-value env)
-            (lookup-env (anEnv-env env) id))))
-  (test (lookup-env (anEnv 'y (numV 2) (anEnv 'x (numV 1) (mtEnv))) 'y) (numV 2))
-  (test (lookup-env (anEnv 'y (numV 2) (anEnv 'x (numV 1) (mtEnv))) 'x) (numV 1))
-  
-  
-  (test (parse '(with (x 10) x)) (with (binding 'x (num 10)) (id 'x)))
-  (test (pre-process (with (binding 'x (num 10)) (id 'x))) (app (fun '(x) (id 'x)) (list (num 10))))
-  (test (run '(- 10 (+ 20 30))) (numV -40))
-  (test (run '(with (x 10) (+ x x))) (numV 20))
-  (test (run '(with (f (fun (x y) (+ x y))) (f 10 20))) (numV 30))
-  (test (run '(with (f (fun (x y z) (- x (+ y z)))) (f 1 2 3))) (numV -4))
-  (test (run '((fun (x y z) (- x (+ y z))) 1 2 3)) (numV -4))
-  (test (run '(with (f (undef x)) 4)) (numV 4))
-  
-  (test (run '(with (x ((fun (x y) (+ x y)) 3 4)) x)) (numV 7))
-  (test (run '(with (apply (fun (f x) (f x))) 
-                    (apply (fun (a) (+ a 1)) 3))) (numV 4))
-  
-  
-  (test (run '(with (apply (fun (f x y) (f x y))) 
-                    (apply (fun (a b) (+ a b)) 3 4))) (numV 7))
-  
-  (test (run '(with (apply (fun (x f y) (f x y))) 
-                    (apply 3 (fun (a b) (+ a b)) 4))) (numV 7))
+        (error "Passed invalid numbers"))))
 
-  (test/exn (interp (pre-process 
-                 (with (binding (quote add) (fun (quote (x y)) (binop + (id (quote x)) (id (quote y))))) 
-                       (if0 (app (id (quote add)) (list (num 3))) 
-                            (app (id (quote add)) (list (num 2) (num 3))) 
-                            (app (id (quote add)) (list (num 3) (num 4))))))) "")
+
+(test (compute-nums - (numV 3) (numV 4)) (numV -1))
+(test (compute-nums + (numV 3) (numV 4)) (numV 7))
+(test (compute-nums * (numV 3) (numV 4)) (numV 12))
+(test (compute-nums / (numV 8) (numV 4)) (numV 2))
+
+(define (extend-env env id value)
+  (anEnv id value env))
+
+(define (lookup-env env id)
+  (if (mtEnv? env)
+      (error 'lookup-env "Unbound identifier: ~s" id)
+      (if (symbol=? (anEnv-name env) id)
+          (anEnv-value env)
+          (lookup-env (anEnv-env env) id))))
+
+(test (lookup-env (anEnv 'y (numV 2) (anEnv 'x (numV 1) (mtEnv))) 'y) (numV 2))
+(test (lookup-env (anEnv 'y (numV 2) (anEnv 'x (numV 1) (mtEnv))) 'x) (numV 1))
+
+;; PARSE
+
+(test (parse 0) (num 0))
+(test (parse '{+ 1 2}) (binop + (num 1) (num 2)))
+(test (parse '{+ 1 {+ 1 2}}) (binop + (num 1) (binop + (num 1) (num 2))))
+(test (parse '{with {x 1} x}) (with (binding 'x (num 1)) (id 'x)))
+(test (parse '{fun {x} x}) (fun (list 'x) (id 'x)))
+(test (parse '{fun {x} {+ x 1}}) (fun (list 'x) (binop + (id 'x) (num 1))))
+
+(test (parse 1) (num 1))
+(test (parse 2) (num 2))
+
+(test (parse 'x) (id 'x))
+(test (parse 'y) (id 'y))
+
+(test (parse '{+ 1 2}) (binop + (num 1) (num 2)))
+(test (parse '{+ x y}) (binop + (id 'x) (id 'y)))
+
+(test (parse '{with {x 1} 2}) (with (binding 'x (num 1)) (num 2)))
+(test (parse '{with {x y} z}) (with (binding 'x (id 'y)) (id 'z)))  ; these errors are not the parser's job
+
+(test (parse '{fun {x} 1}) (fun (list 'x) (num 1)))
+(test (parse '{fun {y} z}) (fun (list 'y) (id 'z)))
+
+(test (parse '{x y}) (app (id 'x) (list (id 'y))))
+(test (parse '{1 2}) (app (num 1) (list (num 2))))  ; this error is not the parser's job
+
+(test/exn (parse '((fun (x) 1))) "")
+(test (parse '(with (x 10) x)) (with (binding 'x (num 10)) (id 'x)))
+
+
+
+;; PRE-PROCESS
+
+(test (pre-process (with (binding 'x (num 1)) (id 'x))) 
+      (app (fun (list 'x) (id 'x)) (list (num 1))))
+(test (pre-process (with (binding 'x (binop + (num 1) (num 2))) (id 'x))) 
+      (app (fun (list 'x) (id 'x)) (list (binop + (num 1) (num 2)))))
+
+(test (pre-process (fun (list 'x) (id 'x))) (fun (list 'x) (id 'x)))
+
+(test (pre-process (fun (list 'x 'y) (id 'x)))
+      (fun (list 'x) (fun (list 'y) (id 'x))))
+
+(test (pre-process (fun (list 'x 'y 'z) (id 'x)))
+      (fun (list 'x) (fun (list 'y) (fun (list 'z) (id 'x)))))
+
+(test (pre-process (with (binding 'x (num 10)) (id 'x))) (app (fun '(x) (id 'x)) (list (num 10))))
+
+
+
+;; INTERP
+(test (run 5) (numV 5))
+(test (run '{+ 1 5}) (numV 6))
+(test (run '{- 1 5}) (numV -4))
+(test (run '(fun {x} {+ x 1})) (closureV 'x (binop + (id 'x) (num 1)) (mtEnv)))
+(test (run '(if0 0 1 5)) (numV 1))
+(test (run '(if0 5 1 5)) (numV 5))
+
+(test (run '(- 10 (+ 20 30))) (numV -40))
+(test (run '(with (x 10) (+ x x))) (numV 20))
+(test (run '(with (f (fun (x y) (+ x y))) (f 10 20))) (numV 30))
+(test (run '(with (f (fun (x y z) (- x (+ y z)))) (f 1 2 3))) (numV -4))
+(test (run '((fun (x y z) (- x (+ y z))) 1 2 3)) (numV -4))
+(test (run '(with (f (undef x)) 4)) (numV 4))
+
+(test (run '(with (x ((fun (x y) (+ x y)) 3 4)) x)) (numV 7))
+(test (run '(with (apply (fun (f x) (f x))) 
+                  (apply (fun (a) (+ a 1)) 3))) (numV 4))
+
+
+(test (run '(with (apply (fun (f x y) (f x y))) 
+                  (apply (fun (a b) (+ a b)) 3 4))) (numV 7))
+
+(test (run '(with (apply (fun (x f y) (f x y))) 
+                  (apply 3 (fun (a b) (+ a b)) 4))) (numV 7))
+
+(test/exn (interp (pre-process 
+                   (with (binding (quote add) (fun (quote (x y)) (binop + (id (quote x)) (id (quote y))))) 
+                         (if0 (app (id (quote add)) (list (num 3))) 
+                              (app (id (quote add)) (list (num 2) (num 3))) 
+                              (app (id (quote add)) (list (num 3) (num 4))))))) "")
+
+(test/exn (run '(fun () 1)) "")
