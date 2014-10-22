@@ -1,5 +1,28 @@
 #lang plai
 
+; WAE ::= <num>
+;      | { + <WAE> <WAE> }
+;      | { - <WAE> <WAE> }
+;      | { with { <id> <WAE> } <WAE> }
+;      | <id>
+
+;<F1WAE> ::= <num>
+;          | {+ <F1WAE> <F1WAE>}
+;          | {with {<id> <F1WAE>} <F1WAE>}
+;          | <id>
+;          | {<id> <F1WAE>}
+;
+; F1 = "first order"
+
+;<FWAE> ::= <num>
+;         | {+ <FWAE> <FWAE>}
+;         | {with {<id> <FWAE>} <FWAE>}
+;         | <id>
+;         | {<FWAE> <FWAE>}
+;         | {fun {<id>} <FWAE>}
+;
+; Functions are first-class!
+
 (define-type Binding
   [binding (name symbol?) (named-expr CFWAE?)])
 
