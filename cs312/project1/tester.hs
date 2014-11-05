@@ -1,7 +1,9 @@
 empty = '_'
 testboard1 = parseBoard "___B___"
-testboard2 = parseBoard "BBB_____________WWW"
-
+testboard2 = parseBoard "B__B___"
+testboard3 = parseBoard "B__B__W"
+testboard4 = parseBoard "B______"
+testboard6 = parseBoard "BBB_____________WWW"
 
 removeEmptyLists :: (Eq a) => [[a]] -> [[a]]
 removeEmptyLists listOfLists 
@@ -35,7 +37,6 @@ isOutOfBounds pos board
   where 
     x = fst pos
     y = snd pos
-      
 
 letterAtPosition :: (Int, Int) -> [[Char]] -> Char
 letterAtPosition pos board 
@@ -44,6 +45,9 @@ letterAtPosition pos board
   where 
     x = fst pos
     y = snd pos
+
+isMiddle :: (Int, Int) -> [String] -> Bool
+isMiddle pos board = (snd pos) == quot (length board) 2
 
 moveLeft :: (Int, Int) -> [String] -> (Int, Int)
 moveLeft pos board = (x - 1, y)
@@ -59,7 +63,8 @@ moveRight pos board = (x + 1, y)
 
 moveDownLeft :: (Int, Int) -> [String] -> (Int, Int)
 moveDownLeft pos board
-	| isUpperHalf pos board	    = (x - 1, y + 1)
+  | isMiddle pos board          = (x - 1, y + 1)
+	| isBottomHalf pos board	    = (x - 1, y + 1)
 	| otherwise										= (x, y + 1)
 	where 
 		x = fst pos
@@ -67,7 +72,8 @@ moveDownLeft pos board
 
 moveDownRight :: (Int, Int) -> [String] -> (Int, Int)
 moveDownRight pos board
-	| isUpperHalf pos board 			= (x, y + 1)
+  | isMiddle pos board          = (x, y + 1)
+	| isBottomHalf pos board 			= (x, y + 1)
 	| otherwise										= (x + 1, y + 1)
 	where 
 		x = fst pos
@@ -75,6 +81,7 @@ moveDownRight pos board
 
 moveUpLeft :: (Int, Int) -> [String] -> (Int, Int)
 moveUpLeft pos board
+  | isMiddle pos board          = (x - 1, y - 1)
 	| isBottomHalf pos board			= (x, y - 1)
 	| otherwise										= (x - 1, y - 1)
 	where 
@@ -83,6 +90,7 @@ moveUpLeft pos board
 
 moveUpRight :: (Int, Int) -> [String] -> (Int, Int)
 moveUpRight pos board
+  | isMiddle pos board          = (x, y - 1)
 	| isBottomHalf pos board 		  = (x + 1, y - 1)
 	| otherwise										= (x, y - 1)
 	where 
@@ -129,25 +137,24 @@ degreeOfRawBoard' rawBoard curr
   | otherwise                           = degreeOfRawBoard' rawBoard (curr + 1)
   where currLength = 3 * (curr ^ 2) - 3 * curr + 1
 
-generateStatesForPos pos board = (generateStatesForPos' pos board)
+generateStatesForPos pos board =  (generateStatesForPos' pos board)
 generateStatesForPos' pos board
   | isOutOfBounds pos board         = []
-  | otherwise                       = [(tryMove pos letter moveUpLeft board),    
-                                       (tryMove pos letter moveUpRight board), 
-                                       (tryMove pos letter moveDownLeft board),
-                                       (tryMove pos letter moveDownRight board),
-                                       (tryMove pos letter moveLeft board),
-                                       (tryMove pos letter moveRight board)]
-  where 
-    letter = letterAtPosition pos board
+  | otherwise                       = [(tryMove pos moveUpLeft board),    
+                                       (tryMove pos moveUpRight board), 
+                                       (tryMove pos moveDownLeft board),
+                                       (tryMove pos moveDownRight board),
+                                       (tryMove pos moveLeft board),
+                                       (tryMove pos moveRight board)]
     
-tryMove pos letter moveFunc board 
+tryMove pos moveFunc board 
   | isOutOfBounds movedToPos board                     = []      -- Try failed.
   | movedToLetter == empty                              = swap pos movedToPos board
   -- Here we need to check if we move that direction again, whether or not the letter is opposite.
   | movedToLetter == letter                             = if canHopOver then swap (moveFunc movedToPos board) pos board else []
   | otherwise                                           = []
   where 
+    letter = letterAtPosition pos board
     movedToPos = moveFunc pos board
     movedToLetter = (letterAtPosition movedToPos board)
     canHopOver = canHop letter movedToPos moveFunc board
@@ -176,7 +183,7 @@ generateStatesForLetter' letter board pos
   | isOutOfBounds pos board                 = []
   | letterAtPosition pos board == letter    = (generateStatesForPos pos board) ++ (generateStatesForLetter' letter board next)
   | otherwise                               = generateStatesForLetter' letter board next
-  where next = nextPos next board
+  where next = nextPos pos board
 
 countLetters letter board = countLetters' letter board (0, 0)
 countLetters' letter board pos
