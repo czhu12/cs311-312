@@ -3,7 +3,11 @@ testboard1 = parseBoard "___B___"
 testboard2 = parseBoard "B__B___"
 testboard3 = parseBoard "B__B__W"
 testboard4 = parseBoard "B______"
+testboard5 = parseBoard "BBBBBBW"
 testboard6 = parseBoard "BBB_____________WWW"
+testboard7 = parseBoard "BBBWBBB"
+
+main = print (minimax [testboard3] 'B' 1 0)
 
 removeEmptyLists :: (Eq a) => [[a]] -> [[a]]
 removeEmptyLists listOfLists 
@@ -137,7 +141,7 @@ degreeOfRawBoard' rawBoard curr
   | otherwise                           = degreeOfRawBoard' rawBoard (curr + 1)
   where currLength = 3 * (curr ^ 2) - 3 * curr + 1
 
-generateStatesForPos pos board =  (generateStatesForPos' pos board)
+generateStatesForPos pos board =  removeEmptyLists (generateStatesForPos' pos board)
 generateStatesForPos' pos board
   | isOutOfBounds pos board         = []
   | otherwise                       = [(tryMove pos moveUpLeft board),    
@@ -151,13 +155,15 @@ tryMove pos moveFunc board
   | isOutOfBounds movedToPos board                     = []      -- Try failed.
   | movedToLetter == empty                              = swap pos movedToPos board
   -- Here we need to check if we move that direction again, whether or not the letter is opposite.
-  | movedToLetter == letter                             = if canHopOver then swap (moveFunc movedToPos board) pos board else []
+  | movedToLetter == letter                             = if canHopOver then swap hopToPos pos killedLetterBoard else []
   | otherwise                                           = []
   where 
     letter = letterAtPosition pos board
     movedToPos = moveFunc pos board
     movedToLetter = (letterAtPosition movedToPos board)
     canHopOver = canHop letter movedToPos moveFunc board
+    hopToPos = (moveFunc movedToPos board)
+    killedLetterBoard = (replaceLetter hopToPos empty board)
  
 canHop letter movedToPos moveFunc board
   | isOutOfBounds hopToPos board       = False
@@ -166,17 +172,29 @@ canHop letter movedToPos moveFunc board
     hopToPos = moveFunc movedToPos board
     hopToLetter = letterAtPosition hopToPos board
 
-
 -- Time to write the score functionality --
 
 -- Score takes a letter and a board and an n which represents how many letters this game starts out with
 -- It will judge the score of the board relative to the letter.
 -- If the letter won, score will return 10, if the letter lost, the score will return -10, if neither, it will return 0.
-score letter board n = score' letter board n (0, 0)
-score' board letter n pos
+score letter n pastStates board 
+  | (scoreLetter letter n pastStates board) == -10                       = -10
+  | (scoreLetter (oppositeLetter letter) n pastStates board) == -10      = 10
+  | otherwise                                                            = 0
+
+scoreLetter letter n pastStates board = scoreLetter' letter n pastStates (0, 0) board
+scoreLetter' letter n pastStates pos board
   | countLetters letter board < n / 2           = -10
-  | generateStatesForLetter letter board == []  = -10
+  | nonRedundantStates == []                    = -10
   | otherwise                                   = 0
+  where 
+    nextPossibleStates = generateStatesForLetter letter board
+    nonRedundantStates = nonRedundant nextPossibleStates pastStates
+
+nonRedundant states pastStates 
+  | null states                     = []
+  | elem (head states) pastStates   = nonRedundant (tail states) pastStates
+  | otherwise                       = (head states) : (nonRedundant (tail states) pastStates)
 
 generateStatesForLetter letter board = generateStatesForLetter' letter board (0, 0)
 generateStatesForLetter' letter board pos 
@@ -199,3 +217,68 @@ nextPos pos board
   where 
     x = fst pos
     y = snd pos
+
+--function minimax(node, depth, maximizingPlayer)
+--  if depth = 0 or node is a terminal node
+--    return the heuristic value of node
+--  if maximizingPlayer
+--    bestValue := -∞
+--    for each child of node
+--      val := minimax(child, depth - 1, FALSE)
+--      bestValue := max(bestValue, val)
+--    return bestValue
+--  else
+--    bestValue := +∞
+--    for each child of node
+--      val := minimax(child, depth - 1, TRUE)
+--      bestValue := min(bestValue, val)
+--    return bestValue
+--minimax letter depth maximizingLetter board
+
+minimax :: [[String]] -> Char -> Int -> Int -> [[String]]
+minimax states player depth degree = minimax' states player depth degree player
+
+minimax' :: [[String]] -> Char -> Int -> Int -> Char -> [[String]]
+minimax' states letter depth degree player
+  | depth == 0                                  = states
+  | boardScore == -10                           = states --lost
+  | boardScore == 10                            = states --won
+  | player == letter                            = getMaximum letter minimaxPaths
+  | player /= letter                            = getMinimum letter minimaxPaths
+  | otherwise                                   = error "How did I get here?" -- here we wanna call minimax on each of the children, flipping the letter and appending the current 
+  where 
+    board = (head states)
+    pastStates = (tail states)
+    boardScore = (score letter 2 pastStates board)
+    childrenStates = generateStatesForLetter letter board
+    minimaxPaths = removeEmptyLists (minimaxOnAll childrenStates states (oppositeLetter letter) (depth - 1) degree player)
+    -- call minimax on each child
+
+minimaxOnAll :: [[String]] -> [[String]] -> Char -> Int -> Int -> Char -> [[[String]]]
+minimaxOnAll childrenStates states letter depth degree player
+  | null childrenStates           = [[[]]]
+  | otherwise                     = minimaxResults : minimaxOnAll (tail childrenStates) states letter depth degree player
+  where 
+    currentChildState = head childrenStates
+    minimaxPath = currentChildState : states
+    minimaxResults = minimax' minimaxPath letter depth degree player
+ 
+getMaximum :: Char -> [[[String]]] -> [[String]]
+getMaximum letter statePaths = (getMaxOrMin' letter statePaths (-100000) [[[]]] True)
+
+getMinimum :: Char -> [[[String]]] -> [[String]]
+getMinimum letter statePaths = (getMaxOrMin' letter statePaths 100000 [[[]]] False)
+
+getMaxOrMin' :: Char -> [[[String]]] -> Int -> [[String]] -> Bool -> [[String]]
+getMaxOrMin' letter statePaths maxScoreSoFar maxStatePathSoFar isMax
+  | null statePaths                               = maxStatePathSoFar
+  | isMax && boardScore > maxScoreSoFar           = getMaxOrMin' letter (tail statePaths) boardScore currentStatePath isMax
+  | (not isMax) && boardScore < maxScoreSoFar     = getMaxOrMin' letter (tail statePaths) boardScore currentStatePath isMax
+  | otherwise                                     = getMaxOrMin' letter (tail statePaths) maxScoreSoFar maxStatePathSoFar isMax
+  where 
+    currentStatePath = (head statePaths)
+    lastBoard = (head currentStatePath)
+    pastStates = (tail currentStatePath)
+    boardScore = score letter 2 pastStates lastBoard
+
+oppositeLetter letter = if letter == 'B' then 'W' else 'B'
