@@ -184,7 +184,7 @@ score letter n pastStates board
 
 scoreLetter letter n pastStates board = scoreLetter' letter n pastStates (0, 0) board
 scoreLetter' letter n pastStates pos board
-  | countLetters letter board < n / 2           = -10
+  | countLetters letter board <= n - 1          = -10
   | nonRedundantStates == []                    = -10
   | otherwise                                   = 0
   where 
@@ -235,6 +235,11 @@ nextPos pos board
 --    return bestValue
 --minimax letter depth maximizingLetter board
 
+takeLastN list n
+  | null list         = []
+  | n == 0            = []
+  | otherwise         = (head list) : takeLastN (tail list) (n - 1)
+
 minimax :: [[String]] -> Char -> Int -> Int -> [[String]]
 minimax states player depth degree = minimax' states player depth degree player
 
@@ -249,7 +254,7 @@ minimax' states letter depth degree player
   where 
     board = (head states)
     pastStates = (tail states)
-    boardScore = (score letter 2 pastStates board)
+    boardScore = (score letter degree pastStates board)
     childrenStates = generateStatesForLetter letter board
     minimaxPaths = removeEmptyLists (minimaxOnAll childrenStates states (oppositeLetter letter) (depth - 1) degree player)
     -- call minimax on each child
