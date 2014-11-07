@@ -7,7 +7,51 @@ testboard5 = parseBoard "BBBBBBW"
 testboard6 = parseBoard "BBB_____________WWW"
 testboard7 = parseBoard "BBBWBBB"
 
-main = print (minimax [testboard3] 'B' 1 0)
+main = print (minimax [unparseBoard testboard3] 'B' 1 0)
+
+-- =================================================== Move Generation ========================================
+
+generateStatesForLetter :: Char -> [String] -> [[String]]
+generateStatesForLetter letter board = generateStatesForLetter' letter board (0, 0)
+generateStatesForLetter' letter board pos 
+  | isOutOfBounds pos board                 = []
+  | letterAtPosition pos board == letter    = (generateStatesForPos pos board) ++ (generateStatesForLetter' letter board next)
+  | otherwise                               = generateStatesForLetter' letter board next
+  where next = nextPos pos board
+
+-- Generates all states for a position.
+generateStatesForPos pos board =  removeEmptyLists (generateStatesForPos' pos board)
+generateStatesForPos' pos board
+  | isOutOfBounds pos board         = []
+  | otherwise                       = [(tryMove pos moveUpLeft board),    
+                                       (tryMove pos moveUpRight board), 
+                                       (tryMove pos moveDownLeft board),
+                                       (tryMove pos moveDownRight board),
+                                       (tryMove pos moveLeft board),
+                                       (tryMove pos moveRight board)]
+    
+-- This will try to move the piece at a position in a direction, if it succeeds, it will return the new board, else it will return []
+tryMove pos moveFunc board 
+  | isOutOfBounds movedToPos board                     = []      -- Try failed.
+  | movedToLetter == empty                              = swap pos movedToPos board
+  -- Here we need to check if we move that direction again, whether or not the letter is opposite.
+  | movedToLetter == letter                             = if canHopOver then swap hopToPos pos killedLetterBoard else []
+  | otherwise                                           = []
+  where 
+    letter = letterAtPosition pos board
+    movedToPos = moveFunc pos board
+    movedToLetter = (letterAtPosition movedToPos board)
+    canHopOver = canHop letter movedToPos moveFunc board
+    hopToPos = (moveFunc movedToPos board)
+    killedLetterBoard = (replaceLetter hopToPos empty board)
+ 
+-- This checks if a piece is able to hop over another piece in a given direction
+canHop letter movedToPos moveFunc board
+  | isOutOfBounds hopToPos board       = False
+  | otherwise                               = hopToLetter /= empty && hopToLetter /= letter 
+  where 
+    hopToPos = moveFunc movedToPos board
+    hopToLetter = letterAtPosition hopToPos board
 
 removeEmptyLists :: (Eq a) => [[a]] -> [[a]]
 removeEmptyLists listOfLists 
@@ -15,6 +59,7 @@ removeEmptyLists listOfLists
   | (head listOfLists) == []              = removeEmptyLists (tail listOfLists)
   | otherwise                             = (head listOfLists) : removeEmptyLists (tail listOfLists)
 
+-- Swaps two pieces on the board
 swap :: (Int, Int) -> (Int, Int) -> [[Char]] -> [[Char]]
 swap pos1 pos2 board = secondBoard
   where 
@@ -53,6 +98,7 @@ letterAtPosition pos board
 isMiddle :: (Int, Int) -> [String] -> Bool
 isMiddle pos board = (snd pos) == quot (length board) 2
 
+-- ==================================================== Move Direction Functions ======================================
 moveLeft :: (Int, Int) -> [String] -> (Int, Int)
 moveLeft pos board = (x - 1, y)
   where 
@@ -101,13 +147,15 @@ moveUpRight pos board
 		x = fst pos
 		y = snd pos
 
+-- Checks if a position is bottom half of a board
 isBottomHalf :: (Int, Int) -> [String] -> Bool
 isBottomHalf pos board = not (isUpperHalf pos board)
 
+-- Checks if a position is upper half of a board
 isUpperHalf :: (Int, Int) -> [String] -> Bool
 isUpperHalf pos board = (length board) `div` 2 >= (snd pos)
 
---"AABBBAA"
+-- Parse the board to internal representation
 parseBoard :: String -> [String]
 parseBoard rawBoard = parseBoard' rawBoard degree 0
   where degree = degreeOfRawBoard rawBoard
@@ -119,69 +167,50 @@ parseBoard' rawBoard degree row
                                               parseBoard' (drop elementCount rawBoard) degree (row + 1)
   where elementCount = getNumElemInRow degree row
 
+-- Figures out how many element be in row of a board of with some degree 
+getNumElemInRow :: Int -> Int -> Int
 getNumElemInRow degree row 
   | row > midpoint            = degree + row - 2 * (row - midpoint)
   | otherwise                 = degree + row
   where midpoint = getMidPointOfDegree degree
 
+getMidPointOfDegree :: Int -> Int
 getMidPointOfDegree degree
   | degree == 1           = 1
   | otherwise             = degree - 1
 
+-- Unparses board to external representation
 unparseBoard :: [String] -> String
 unparseBoard board 
   | null board            = ""
   | otherwise             = head board ++ unparseBoard (tail board)
 
+-- Figures out the degree of a raw board
 degreeOfRawBoard :: String -> Int
 degreeOfRawBoard rawBoard = degreeOfRawBoard' rawBoard 0
 
+degreeOfRawBoard' :: String -> Int -> Int
 degreeOfRawBoard' rawBoard curr
   | currLength == length rawBoard             = curr
   | otherwise                           = degreeOfRawBoard' rawBoard (curr + 1)
   where currLength = 3 * (curr ^ 2) - 3 * curr + 1
 
-generateStatesForPos pos board =  removeEmptyLists (generateStatesForPos' pos board)
-generateStatesForPos' pos board
-  | isOutOfBounds pos board         = []
-  | otherwise                       = [(tryMove pos moveUpLeft board),    
-                                       (tryMove pos moveUpRight board), 
-                                       (tryMove pos moveDownLeft board),
-                                       (tryMove pos moveDownRight board),
-                                       (tryMove pos moveLeft board),
-                                       (tryMove pos moveRight board)]
-    
-tryMove pos moveFunc board 
-  | isOutOfBounds movedToPos board                     = []      -- Try failed.
-  | movedToLetter == empty                              = swap pos movedToPos board
-  -- Here we need to check if we move that direction again, whether or not the letter is opposite.
-  | movedToLetter == letter                             = if canHopOver then swap hopToPos pos killedLetterBoard else []
-  | otherwise                                           = []
-  where 
-    letter = letterAtPosition pos board
-    movedToPos = moveFunc pos board
-    movedToLetter = (letterAtPosition movedToPos board)
-    canHopOver = canHop letter movedToPos moveFunc board
-    hopToPos = (moveFunc movedToPos board)
-    killedLetterBoard = (replaceLetter hopToPos empty board)
- 
-canHop letter movedToPos moveFunc board
-  | isOutOfBounds hopToPos board       = False
-  | otherwise                               = hopToLetter /= empty && hopToLetter /= letter 
-  where 
-    hopToPos = moveFunc movedToPos board
-    hopToLetter = letterAtPosition hopToPos board
 
+-- =================================================== Score ========================================
 -- Time to write the score functionality --
 
 -- Score takes a letter and a board and an n which represents how many letters this game starts out with
 -- It will judge the score of the board relative to the letter.
 -- If the letter won, score will return 10, if the letter lost, the score will return -10, if neither, it will return 0.
+-- Has to score both letters to figure out score.
+score :: Char -> Int -> [[String]] -> [String] -> Int
 score letter n pastStates board 
   | (scoreLetter letter n pastStates board) == -10                       = -10
   | (scoreLetter (oppositeLetter letter) n pastStates board) == -10      = 10
   | otherwise                                                            = 0
 
+-- Scores only a single letter, can only tell if it lost.
+scoreLetter :: Char -> Int -> [[String]] -> [String] -> Int
 scoreLetter letter n pastStates board = scoreLetter' letter n pastStates (0, 0) board
 scoreLetter' letter n pastStates pos board
   | countLetters letter board <= n - 1          = -10
@@ -191,19 +220,19 @@ scoreLetter' letter n pastStates pos board
     nextPossibleStates = generateStatesForLetter letter board
     nonRedundantStates = nonRedundant nextPossibleStates pastStates
 
+-- Gets all the non redundant states by going through the states and 
+-- discarding the states that are also in the pastStates
+nonRedundant :: [[String]] -> [[String]] -> [[String]]
 nonRedundant states pastStates 
   | null states                     = []
   | elem (head states) pastStates   = nonRedundant (tail states) pastStates
   | otherwise                       = (head states) : (nonRedundant (tail states) pastStates)
 
-generateStatesForLetter letter board = generateStatesForLetter' letter board (0, 0)
-generateStatesForLetter' letter board pos 
-  | isOutOfBounds pos board                 = []
-  | letterAtPosition pos board == letter    = (generateStatesForPos pos board) ++ (generateStatesForLetter' letter board next)
-  | otherwise                               = generateStatesForLetter' letter board next
-  where next = nextPos pos board
-
+-- Counts how many times the letter appears on the board.
+countLetters :: Char -> [String] -> Int
 countLetters letter board = countLetters' letter board (0, 0)
+
+countLetters' :: Char -> [String] -> (Int, Int) -> Int
 countLetters' letter board pos
   | isOutOfBounds pos board                             = 0
   | letterAtPosition pos board == letter          = 1 + countLetters' letter board next
@@ -218,31 +247,25 @@ nextPos pos board
     x = fst pos
     y = snd pos
 
---function minimax(node, depth, maximizingPlayer)
---  if depth = 0 or node is a terminal node
---    return the heuristic value of node
---  if maximizingPlayer
---    bestValue := -∞
---    for each child of node
---      val := minimax(child, depth - 1, FALSE)
---      bestValue := max(bestValue, val)
---    return bestValue
---  else
---    bestValue := +∞
---    for each child of node
---      val := minimax(child, depth - 1, TRUE)
---      bestValue := min(bestValue, val)
---    return bestValue
---minimax letter depth maximizingLetter board
-
+takeLastN :: [[String]] -> Int -> [[String]]
 takeLastN list n
   | null list         = []
   | n == 0            = []
   | otherwise         = (head list) : takeLastN (tail list) (n - 1)
 
-minimax :: [[String]] -> Char -> Int -> Int -> [[String]]
-minimax states player depth degree = minimax' states player depth degree player
+-- =================================================== Minimax ========================================
 
+-- This function needs to take the board and parse it to the internal representation of a board. 
+-- Then after the minimax algorithm runs, it needs to unparse it back to the external representation.
+minimax :: [String] -> Char -> Int -> Int -> [String]
+minimax unparsedStates player depth degree = unparsedSolution
+  where 
+    parsedStates = (map parseBoard unparsedStates)
+    toTakeCount = (length unparsedStates) + 1
+    parsedSolution = takeLastN (minimax' parsedStates player depth degree player) toTakeCount
+    unparsedSolution = map unparseBoard parsedSolution
+
+-- Performs the actual minimax algorithm
 minimax' :: [[String]] -> Char -> Int -> Int -> Char -> [[String]]
 minimax' states letter depth degree player
   | depth == 0                                  = states
@@ -268,9 +291,11 @@ minimaxOnAll childrenStates states letter depth degree player
     minimaxPath = currentChildState : states
     minimaxResults = minimax' minimaxPath letter depth degree player
  
+-- Gets the max state in a list of states.
 getMaximum :: Char -> [[[String]]] -> [[String]]
 getMaximum letter statePaths = (getMaxOrMin' letter statePaths (-100000) [[[]]] True)
 
+-- Gets the min state in a list of states.
 getMinimum :: Char -> [[[String]]] -> [[String]]
 getMinimum letter statePaths = (getMaxOrMin' letter statePaths 100000 [[[]]] False)
 
