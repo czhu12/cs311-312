@@ -38,7 +38,7 @@ minimax' states letter depth degree player
     board = (head states)
     pastStates = (tail states)
     boardScore = (score letter degree pastStates board)
-    childrenStates = generateStatesForLetter letter board
+    childrenStates = nonRedundant (generateStatesForLetter letter board) states
     minimaxPaths = removeEmptyLists (minimaxOnAll childrenStates states (oppositeLetter letter) (depth - 1) degree player)
     -- here we wanna call minimax on each of the children, flipping the letter and appending the current board
 
@@ -53,11 +53,11 @@ minimaxOnAll childrenStates states letter depth degree player
  
 -- Gets the max state in a list of states.
 getMaximum :: Char -> [[[String]]] -> Int -> [[String]]
-getMaximum letter statePaths n = (getMaxOrMin' letter statePaths n (-100000) [[[]]] True)
+getMaximum letter statePaths n = (getMaxOrMin' letter statePaths n (-100000) [] True)
 
 -- Gets the min state in a list of states.
 getMinimum :: Char -> [[[String]]] -> Int -> [[String]]
-getMinimum letter statePaths n = (getMaxOrMin' letter statePaths n 100000 [[[]]] False)
+getMinimum letter statePaths n = (getMaxOrMin' letter statePaths n 100000 [] False)
 
 getMaxOrMin' :: Char -> [[[String]]] -> Int -> Int -> [[String]] -> Bool -> [[String]]
 getMaxOrMin' letter statePaths n maxScoreSoFar maxStatePathSoFar isMax
