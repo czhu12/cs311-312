@@ -26,7 +26,7 @@ nogoal3 = ["----",
 nogoal4 = ["-----", 
            "XX-BA", 
            "---BA", 
-           "----B"]
+           "-----"]
 
 nogoal5 = ["----B-", 
            "----B-", 
@@ -35,12 +35,14 @@ nogoal5 = ["----B-",
            "---CDD",
            "------"]
 
+main = printSolution nogoal4
+
+printSolution :: [[Char]] -> IO()
+printSolution [] = putStrLn "No solution could be found."
+printSolution board = putStrLn (formatSolutions (solve (board)))
+
 solve :: [[Char]] -> [[[Char]]]
 solve board = reverse (statesearch [board] [])
-
-printSolution :: [[[Char]]] -> IO()
-printSolution [] = putStrLn "No solution could be found."
-printSolution solution = putStrLn (formatSolutions (solution))
 
 formatSolutions :: [[[Char]]] -> [Char]
 formatSolutions solutions
