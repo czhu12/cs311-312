@@ -22,8 +22,7 @@ minimax unparsedStates player depth degree = unparsedSolution
   where 
     parsedStates = (map parseBoard unparsedStates)
     toTakeCount = (length unparsedStates) + 1
-    --parsedSolution = takeLastN (minimax' parsedStates player depth degree player) toTakeCount
-    parsedSolution =  (minimax' parsedStates player depth degree player) 
+    parsedSolution = takeLastN (minimax' parsedStates player depth degree player) toTakeCount
     unparsedSolution = map unparseBoard parsedSolution
 
 -- Performs the actual minimax algorithm
@@ -312,9 +311,6 @@ nextPos pos board
     y = snd pos
 
 takeLastN :: [[String]] -> Int -> [[String]]
-takeLastN list n
-  | null list         = []
-  | n == 0            = []
-  | otherwise         = (head list) : takeLastN (tail list) (n - 1)
+takeLastN list n = reverse . take n . reverse $ list
 
 oppositeLetter letter = if letter == 'B' then 'W' else 'B'
