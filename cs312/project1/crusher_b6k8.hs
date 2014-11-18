@@ -8,7 +8,7 @@ testboard6 = parseBoard "BBB_____________WWW"
 testboard7 = parseBoard "BBBWBBB"
 testboard8 = parseBoard "BBB_BB_______WW_WWW"
 
-main = print (crusher_b6k8 [unparseBoard testboard8] 'B' 4 3)
+main = print (crusher_b6k8 [unparseBoard testboard8] 'W' 4 3)
 
 crusher_b6k8 :: [String] -> Char -> Int -> Int -> [String]
 crusher_b6k8 unparsedStates player depth degree = minimax unparsedStates player depth degree
