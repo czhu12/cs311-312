@@ -6,8 +6,70 @@ testboard4 = parseBoard "B______"
 testboard5 = parseBoard "BBBBBBW"
 testboard6 = parseBoard "BBB_____________WWW"
 testboard7 = parseBoard "BBBWBBB"
+testboard8 = parseBoard "BBB_BB_______WW_WWW"
 
-main = print (minimax [unparseBoard testboard3] 'B' 1 0)
+main = print (crusher_b6k8 [unparseBoard testboard8] 'W' 4 3)
+
+crusher_b6k8 :: [String] -> Char -> Int -> Int -> [String]
+crusher_b6k8 unparsedStates player depth degree = minimax unparsedStates player depth degree
+
+-- =================================================== Minimax ========================================
+
+-- This function needs to take the board and parse it to the internal representation of a board. 
+-- Then after the minimax algorithm runs, it needs to unparse it back to the external representation.
+minimax :: [String] -> Char -> Int -> Int -> [String]
+minimax unparsedStates player depth degree = unparsedSolution
+  where 
+    parsedStates = (map parseBoard unparsedStates)
+    toTakeCount = (length unparsedStates) + 1
+    parsedSolution = takeLastN (minimax' parsedStates player depth degree player) toTakeCount
+    unparsedSolution = map unparseBoard parsedSolution
+
+-- Performs the actual minimax algorithm
+minimax' :: [[String]] -> Char -> Int -> Int -> Char -> [[String]]
+minimax' states letter depth degree player
+  | depth == 0                                  = states
+  | boardScore == -10                           = states --lost
+  | boardScore == 10                            = states --won
+  | player == letter                            = getMaximum letter minimaxPaths degree
+  | player /= letter                            = getMinimum letter minimaxPaths degree
+  | otherwise                                   = error "How did I get here?" 
+  where 
+    board = (head states)
+    pastStates = (tail states)
+    boardScore = (score letter degree pastStates board)
+    childrenStates = nonRedundant (generateStatesForLetter letter board) states
+    minimaxPaths = removeEmptyLists (minimaxOnAll childrenStates states (oppositeLetter letter) (depth - 1) degree player)
+    -- here we wanna call minimax on each of the children, flipping the letter and appending the current board
+
+minimaxOnAll :: [[String]] -> [[String]] -> Char -> Int -> Int -> Char -> [[[String]]]
+minimaxOnAll childrenStates states letter depth degree player
+  | null childrenStates           = []
+  | otherwise                     = minimaxResults : minimaxOnAll (tail childrenStates) states letter depth degree player
+  where 
+    currentChildState = head childrenStates
+    minimaxPath = currentChildState : states
+    minimaxResults = minimax' minimaxPath letter depth degree player
+ 
+-- Gets the max state in a list of states.
+getMaximum :: Char -> [[[String]]] -> Int -> [[String]]
+getMaximum letter statePaths n = (getMaxOrMin' letter statePaths n (-100000) [] True)
+
+-- Gets the min state in a list of states.
+getMinimum :: Char -> [[[String]]] -> Int -> [[String]]
+getMinimum letter statePaths n = (getMaxOrMin' letter statePaths n 100000 [] False)
+
+getMaxOrMin' :: Char -> [[[String]]] -> Int -> Int -> [[String]] -> Bool -> [[String]]
+getMaxOrMin' letter statePaths n maxScoreSoFar maxStatePathSoFar isMax
+  | null statePaths                               = maxStatePathSoFar
+  | isMax && boardScore > maxScoreSoFar           = getMaxOrMin' letter (tail statePaths) n boardScore currentStatePath isMax
+  | (not isMax) && boardScore < maxScoreSoFar     = getMaxOrMin' letter (tail statePaths) n boardScore currentStatePath isMax
+  | otherwise                                     = getMaxOrMin' letter (tail statePaths) n maxScoreSoFar maxStatePathSoFar isMax
+  where 
+    currentStatePath = (head statePaths)
+    lastBoard = (head currentStatePath)
+    pastStates = (tail currentStatePath)
+    boardScore = score letter n pastStates lastBoard
 
 -- =================================================== Move Generation ========================================
 
@@ -201,13 +263,14 @@ degreeOfRawBoard' rawBoard curr
 
 -- Score takes a letter and a board and an n which represents how many letters this game starts out with
 -- It will judge the score of the board relative to the letter.
--- If the letter won, score will return 10, if the letter lost, the score will return -10, if neither, it will return 0.
+-- If the letter won, score will return 10, if the letter lost, the score will return -10, if neither, it will return 
+-- the difference between the letter being scored and the other letter.
 -- Has to score both letters to figure out score.
 score :: Char -> Int -> [[String]] -> [String] -> Int
 score letter n pastStates board 
   | (scoreLetter letter n pastStates board) == -10                       = -10
   | (scoreLetter (oppositeLetter letter) n pastStates board) == -10      = 10
-  | otherwise                                                            = 0
+  | otherwise                                                            = (countLetters letter board) - (countLetters (oppositeLetter letter) board)
 
 -- Scores only a single letter, can only tell if it lost.
 scoreLetter :: Char -> Int -> [[String]] -> [String] -> Int
@@ -215,7 +278,7 @@ scoreLetter letter n pastStates board = scoreLetter' letter n pastStates (0, 0) 
 scoreLetter' letter n pastStates pos board
   | countLetters letter board <= n - 1          = -10
   | nonRedundantStates == []                    = -10
-  | otherwise                                   = 0
+  | otherwise                                   = (countLetters letter board) - (countLetters (oppositeLetter letter) board)
   where 
     nextPossibleStates = generateStatesForLetter letter board
     nonRedundantStates = nonRedundant nextPossibleStates pastStates
@@ -248,67 +311,6 @@ nextPos pos board
     y = snd pos
 
 takeLastN :: [[String]] -> Int -> [[String]]
-takeLastN list n
-  | null list         = []
-  | n == 0            = []
-  | otherwise         = (head list) : takeLastN (tail list) (n - 1)
-
--- =================================================== Minimax ========================================
-
--- This function needs to take the board and parse it to the internal representation of a board. 
--- Then after the minimax algorithm runs, it needs to unparse it back to the external representation.
-minimax :: [String] -> Char -> Int -> Int -> [String]
-minimax unparsedStates player depth degree = unparsedSolution
-  where 
-    parsedStates = (map parseBoard unparsedStates)
-    toTakeCount = (length unparsedStates) + 1
-    parsedSolution = takeLastN (minimax' parsedStates player depth degree player) toTakeCount
-    unparsedSolution = map unparseBoard parsedSolution
-
--- Performs the actual minimax algorithm
-minimax' :: [[String]] -> Char -> Int -> Int -> Char -> [[String]]
-minimax' states letter depth degree player
-  | depth == 0                                  = states
-  | boardScore == -10                           = states --lost
-  | boardScore == 10                            = states --won
-  | player == letter                            = getMaximum letter minimaxPaths
-  | player /= letter                            = getMinimum letter minimaxPaths
-  | otherwise                                   = error "How did I get here?" -- here we wanna call minimax on each of the children, flipping the letter and appending the current 
-  where 
-    board = (head states)
-    pastStates = (tail states)
-    boardScore = (score letter degree pastStates board)
-    childrenStates = generateStatesForLetter letter board
-    minimaxPaths = removeEmptyLists (minimaxOnAll childrenStates states (oppositeLetter letter) (depth - 1) degree player)
-    -- call minimax on each child
-
-minimaxOnAll :: [[String]] -> [[String]] -> Char -> Int -> Int -> Char -> [[[String]]]
-minimaxOnAll childrenStates states letter depth degree player
-  | null childrenStates           = [[[]]]
-  | otherwise                     = minimaxResults : minimaxOnAll (tail childrenStates) states letter depth degree player
-  where 
-    currentChildState = head childrenStates
-    minimaxPath = currentChildState : states
-    minimaxResults = minimax' minimaxPath letter depth degree player
- 
--- Gets the max state in a list of states.
-getMaximum :: Char -> [[[String]]] -> [[String]]
-getMaximum letter statePaths = (getMaxOrMin' letter statePaths (-100000) [[[]]] True)
-
--- Gets the min state in a list of states.
-getMinimum :: Char -> [[[String]]] -> [[String]]
-getMinimum letter statePaths = (getMaxOrMin' letter statePaths 100000 [[[]]] False)
-
-getMaxOrMin' :: Char -> [[[String]]] -> Int -> [[String]] -> Bool -> [[String]]
-getMaxOrMin' letter statePaths maxScoreSoFar maxStatePathSoFar isMax
-  | null statePaths                               = maxStatePathSoFar
-  | isMax && boardScore > maxScoreSoFar           = getMaxOrMin' letter (tail statePaths) boardScore currentStatePath isMax
-  | (not isMax) && boardScore < maxScoreSoFar     = getMaxOrMin' letter (tail statePaths) boardScore currentStatePath isMax
-  | otherwise                                     = getMaxOrMin' letter (tail statePaths) maxScoreSoFar maxStatePathSoFar isMax
-  where 
-    currentStatePath = (head statePaths)
-    lastBoard = (head currentStatePath)
-    pastStates = (tail currentStatePath)
-    boardScore = score letter 2 pastStates lastBoard
+takeLastN list n = reverse . take n . reverse $ list
 
 oppositeLetter letter = if letter == 'B' then 'W' else 'B'

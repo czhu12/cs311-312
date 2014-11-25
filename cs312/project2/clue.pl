@@ -400,4 +400,3 @@ print_card_state(Card) :- format('~w~23|',Card),player_list(Playerlist), maplist
 
 next_turn(N,N1) :- number_of_players(Num),N < Num,!,N1 is N + 1.
 next_turn(N,N1) :- number_of_players(Num),N == Num,!,N1 is 1.
-
