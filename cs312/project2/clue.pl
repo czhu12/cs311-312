@@ -1,3 +1,18 @@
+% Clue Project
+% Nov 28 2014
+%
+% Chengji Zhu
+% b6k8
+% 39026117
+%
+% John Giannakos
+% g6b8
+% 17698119
+%
+% To start game, type "start_game."
+%
+% Cheers!
+
 :- dynamic holding/2.
 :- dynamic question/4.
 :- dynamic turn/1.
