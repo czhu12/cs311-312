@@ -13,29 +13,29 @@
 %
 % Cheers!
 
-suspect('Professor Plum').
-suspect('Mr. Green').
-suspect('Mrs. Peacock').
-suspect('Mrs. White').
-suspect('Ms. Scarlet').
-suspect('Colonel Mustard').
+suspect('S - Professor Plum').
+suspect('S - Mr. Green').
+suspect('S - Mrs. Peacock').
+suspect('S - Mrs. White').
+suspect('S - Ms. Scarlet').
+suspect('S - Colonel Mustard').
 
-weapon('knife').
-weapon('candlestick').
-weapon('revolver').
-weapon('rope').
-weapon('lead pipe').
-weapon('wrench').
+weapon('W - Knife').
+weapon('W - Candlestick').
+weapon('W - Revolver').
+weapon('W - Rope').
+weapon('W - Lead Pipe').
+weapon('W - Wrench').
 
-room('kitchen').
-room('ballroom').
-room('conservatory').
-room('billiard room').
-room('library').
-room('study').
-room('hall').
-room('lounge').
-room('dining room').
+room('R - Kitchen').
+room('R - Ballroom').
+room('R - Conservatory').
+room('R - Billiard room').
+room('R - Library').
+room('R - Study').
+room('R - Hall').
+room('R - Lounge').
+room('R - Dining Room').
 
 start_game :- 
     clear_all_asserts,
@@ -101,10 +101,18 @@ check_number(Min,Max,N) :-
     
 get_suspects :- 
     repeat,
+    print_welcome_message,
     write('Enter the number of suspects: '),
     read_number(2,6,X),assert(num_suspects(X)),nl.
 
-get_suspect_names :- write('Enter suspects in the order of play. '),get_suspect_name_helper(1),nl.
+print_welcome_message :- 
+    repeat,
+    write('Welcome to clue!'),nl,
+    write('We can help you keep track of what has been seen, as well as make suggestions for what you can do.'), nl,
+    write('Good Luck!'), nl.
+
+
+get_suspect_names :- write('Enter suspects in the order turns are taken. '),get_suspect_name_helper(1),nl.
 get_suspect_name_helper(N) :- 
     num_suspects(X),N =< X,
     repeat,
@@ -117,20 +125,20 @@ get_suspect_name_helper(N) :- num_suspects(X),N > X.
 
 get_suspect_number :- 
     repeat,
-    write('Enter your suspect number: '),num_suspects(N),
+    write('What is your number in the players you just entered? '),num_suspects(N),
     read_number(1,N,X),integer(X),assert(suspect_number(X)),nl.
     
 get_my_cards :-
-    repeat, write('Which of the following cards do you have?'),nl,
+    repeat, write('Which cards do you have?'),nl,
     not_owned_list(L),display_menu(L),length(L,Clength),
     read_number(1,Clength,Cnum),integer(Cnum),nth1(Cnum,L,Card),
     store_my_card(Card),
-    Card == 'None',!,nl,
+    Card == 'Done',!,nl,
     not_my_cards(L),
     true.
 
 not_owned(C) :- all_cards(L),member(C,L),suspect_number(N),not(is_holding(C,N)).
-not_owned_list(L) :- findall(X,not_owned(X),L1),append(L1,['None'],L).
+not_owned_list(L) :- findall(X,not_owned(X),L1),append(L1,['Done'],L).
 
 display_menu(Menu) :- disp_menu(1,Menu),!.
 disp_menu(_,[]).
@@ -205,13 +213,13 @@ handle_a_turn_helper(Option) :-
     get_turn_options(TurnOptions),
     nth1(2,TurnOptions,Option),!,
     suspect_number(N),suspect(N,Suspect),
-    PersonQ = 'Which suspect did you suggest?',all_people(PersonList),
+    PersonQ = 'Which suspect?',all_people(PersonList),
     ask_question_with_full_menu(PersonQ,PersonList,P),
-    WeaponQ = 'Which weapon did you suggest?',all_weapons(WeaponList),
+    WeaponQ = 'Which weapon?',all_weapons(WeaponList),
     ask_question_with_full_menu(WeaponQ,WeaponList,W),
-    RoomQ = 'Which room did you suggest?',all_rooms(RoomList),
+    RoomQ = 'Which room?',all_rooms(RoomList),
     ask_question_with_full_menu(RoomQ,RoomList,R),
-    SuspectQ = 'Who showed you a card?',all_suspects(AllSuspects),
+    SuspectQ = 'Who showed you their card?',all_suspects(AllSuspects),
     select(Suspect,AllSuspects,SuspectList),append(SuspectList,['Nobody'],ShowList),
     ask_question_with_full_menu(SuspectQ,ShowList,ShowSuspect),
     get_suspect_number(ShowSuspect,ShowSuspectNum),
@@ -224,7 +232,7 @@ handle_a_turn_helper(Option) :-
 handle_a_turn_helper(Option) :-
     get_turn_options(TurnOptions),
     nth1(3,TurnOptions,Option),!,
-    SuspectQ = 'Who made a suggestion?',all_suspects(AllSuspects),
+    SuspectQ = 'Whos turn was it?',all_suspects(AllSuspects),
     suspect_number(MyN),suspect(MyN,MySuspect),select(MySuspect,AllSuspects,AllSuspectsButYou),
     ask_question_with_full_menu(SuspectQ,AllSuspectsButYou,Suspect),
     get_suspect_number(Suspect,N),suspect_string(N,SuspectStr),
@@ -262,7 +270,7 @@ handle_a_turn_helper(Option) :-
     string_concat('Which room did ',SuspectStr,RoomQ1),string_concat(RoomQ1,' ask for?',RoomQ),
     all_rooms(RoomList),
     ask_question_with_full_menu(RoomQ,RoomList,R),
-    GameOverQ = 'Is the game over?',GameOverList=['Yes','No'],
+    GameOverQ = 'Did they get it?',GameOverList=['Yes','No'],
     ask_question_with_full_menu(GameOverQ,GameOverList,Over),
     (Over == 'Yes' -> assert(quit_clue_game) ; true).
 
@@ -279,12 +287,12 @@ handle_a_turn_helper(Option) :-
     assert(quit_clue_game).
 
 get_turn_options(L) :-
-    L = [   'See Our Suggestions.',
-            'Enter Your Suggestion.',
-            'Enter Someone Else\'s Suggestion.',
-            'Enter Someone Else\'s Accusation.',
-            'View the Entries.',
-            'End Game.'].
+    L = [   'Type "1." to and we\'ll give you our suggestion. ',
+            'Type "2." to enter your suggestion and we\'ll track it for you.',
+            'Type "3." to enter someone else\'s suggestion and we\'ll track it for you.',
+            'Type "4." to enter someone else\'s accusation and we\'ll track it for you.',
+            'Type "5." to see what we have saved so far.',
+            'Type "6." to exit.'].
     
 get_suspect_number(Suspect,Num) :- Suspect == 'Nobody',Num = 0.
 get_suspect_number(Suspect,Num) :- not(Suspect == 'Nobody'),suspect(Num,Suspect).
@@ -394,9 +402,9 @@ card_suspect_symbol(_,_,Symbol) :- Symbol = ' '.
 not_my_cards([H|_]) :- not(room(H)),not(weapon(H)),not(suspect(H)),!.
 not_my_cards([H|T]) :- (room(H);weapon(H);suspect(H)),!,suspect_number(N),suspect_doesnt_have(H,N),not_my_cards(T).
     
-store_my_card(C) :- C == 'None',!.
+store_my_card(C) :- C == 'Done',!.
 store_my_card(C) :- 
-    not(C == 'None'),!,
+    not(C == 'Done'),!,
     suspect_number(N),assert_known(C,N).
 
 
