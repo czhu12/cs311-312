@@ -14,11 +14,11 @@
 % Cheers!
 
 suspect('S - Professor Plum').
-suspect('S - Mr. Green').
-suspect('S - Mrs. Peacock').
-suspect('S - Mrs. White').
-suspect('S - Ms. Scarlet').
-suspect('S - Colonel Mustard').
+suspect('S - Mr Green').
+suspect('S - Mrs Peacock').
+suspect('S - Mrs White').
+suspect('S - Ms Scarlet').
+suspect('S - Corlonel Mustard').
 
 weapon('W - Knife').
 weapon('W - Candlestick').
@@ -106,9 +106,12 @@ get_suspects :-
     read_number(2,6,X),assert(num_suspects(X)),nl.
 
 print_welcome_message :- 
-    repeat,
-    write('Welcome to clue!'),nl,
-    write('We can help you keep track of what has been seen, as well as make suggestions for what you can do.'), nl,
+    repeat,nl,nl,
+    write('========================================'),nl,
+    write('Welcome to Clue 2.0'),nl,
+    write('By: Chris Zhu and John Giannokos'),nl,
+    write('========================================'),nl,nl,
+    write('We can help you keep track of what has been seen, as well as make suggestions for what you can do.'), nl,nl,nl,
     write('Good Luck!'), nl.
 
 
@@ -125,11 +128,11 @@ get_suspect_name_helper(N) :- num_suspects(X),N > X.
 
 get_suspect_number :- 
     repeat,
-    write('What is your number in the players you just entered? '),num_suspects(N),
+    write('What is your index number in the suspects you just entered? '),num_suspects(N),
     read_number(1,N,X),integer(X),assert(suspect_number(X)),nl.
     
 get_my_cards :-
-    repeat, write('Which cards do you have?'),nl,
+    repeat, write('Which do you have?'),nl,
     not_owned_list(L),display_menu(L),length(L,Clength),
     read_number(1,Clength,Cnum),integer(Cnum),nth1(Cnum,L,Card),
     store_my_card(Card),
@@ -146,7 +149,7 @@ disp_menu(N,[H|T]) :-
     write(N),write(': '),write(H),nl,
     N1 is N + 1,disp_menu(N1,T).
     
-lets_play :- repeat,retractall(quit_clue_game),handle_a_turn,(quit_clue_game ; !,true -> make_inferences,fail).
+lets_play :- repeat,retractall(quit_clue_game),next_round,(quit_clue_game ; !,true -> make_inferences,fail).
 
 % make_inferences :- repeat,assert(nothing_changed),question_inferences,card_inferences,nothing_changed,!,true.
 
@@ -191,25 +194,25 @@ ask_question_with_full_menu(Question,MenuList,Answer) :-
     display_menu(MenuList),length(MenuList,MenuLength),
     read_number(1,MenuLength,MenuIndex),!,nth1(MenuIndex,MenuList,Answer).
 
-suspect_string(N,Str) :- not(suspect_number(N)),!,suspect(N,Suspect),
+suspect_str(N,Str) :- not(suspect_number(N)),!,suspect(N,Suspect),
     string_concat('Suspect ',N,Str1),string_concat(Str1,' (',Str2),string_concat(Str2,Suspect,Str3),string_concat(Str3,')',Str).
-suspect_string(N,Str) :- suspect_number(N),!,suspect(N,Suspect),
+suspect_str(N,Str) :- suspect_number(N),!,suspect(N,Suspect),
     string_concat('You (',Suspect,Str1),string_concat(Str1,')',Str).
 
-handle_a_turn :-
+next_round :-
     TurnQ = 'What would you like to do?',get_turn_options(TurnOptions),
     ask_question_with_full_menu(TurnQ,TurnOptions,Option),nl,
-    handle_a_turn_helper(Option),nl.
+    next_round_helper(Option),nl.
 
 % Get our recommendations
-handle_a_turn_helper(Option) :-
+next_round_helper(Option) :-
     get_turn_options(TurnOptions),
     nth1(1,TurnOptions,Option),!,
     write('I think you should ask: '),suggestion(SuggestedP,SuggestedW,SuggestedR),
     write(SuggestedP),write(' in the '),write(SuggestedR),write(' with the '),write(SuggestedW),nl.
     
 % Your suggestion
-handle_a_turn_helper(Option) :-
+next_round_helper(Option) :-
     get_turn_options(TurnOptions),
     nth1(2,TurnOptions,Option),!,
     suspect_number(N),suspect(N,Suspect),
@@ -229,13 +232,13 @@ handle_a_turn_helper(Option) :-
     assert_question(N,(P,W,R),ShowSuspectNum,Card).
 
 % Someone else's suggestion
-handle_a_turn_helper(Option) :-
+next_round_helper(Option) :-
     get_turn_options(TurnOptions),
     nth1(3,TurnOptions,Option),!,
     SuspectQ = 'Whos turn was it?',all_suspects(AllSuspects),
     suspect_number(MyN),suspect(MyN,MySuspect),select(MySuspect,AllSuspects,AllSuspectsButYou),
     ask_question_with_full_menu(SuspectQ,AllSuspectsButYou,Suspect),
-    get_suspect_number(Suspect,N),suspect_string(N,SuspectStr),
+    get_suspect_number(Suspect,N),suspect_str(N,SuspectStr),
     string_concat('Which suspect did ',SuspectStr,PersonQ1),string_concat(PersonQ1,' ask for ?',PersonQ),
     all_people(PersonList),
     ask_question_with_full_menu(PersonQ,PersonList,P),
@@ -253,14 +256,14 @@ handle_a_turn_helper(Option) :-
     assert_question(N,(P,W,R),ShowSuspectNum,_).
 
 % Someone else's suggestion
-handle_a_turn_helper(Option) :- 
+next_round_helper(Option) :- 
     get_turn_options(TurnOptions),
     nth1(4,TurnOptions,Option),!,
     AccusationQ = 'Who made an accusation?',
     suspect_number(MyN),suspect(MyN,MySuspect),
     all_suspects(AllSuspects),select(MySuspect,AllSuspects,AllSuspectsButYou),
     ask_question_with_full_menu(AccusationQ,AllSuspectsButYou,Suspect),
-    get_suspect_number(Suspect,N),suspect_string(N,SuspectStr),
+    get_suspect_number(Suspect,N),suspect_str(N,SuspectStr),
     string_concat('Which suspect did ',SuspectStr,PersonQ1),string_concat(PersonQ1,' ask for?',PersonQ),
     all_people(PersonList),
     ask_question_with_full_menu(PersonQ,PersonList,P),
@@ -275,13 +278,13 @@ handle_a_turn_helper(Option) :-
     (Over == 'Yes' -> assert(quit_clue_game) ; true).
 
 % Print entries
-handle_a_turn_helper(Option) :-     
+next_round_helper(Option) :-     
     get_turn_options(TurnOptions),
     nth1(5,TurnOptions,Option),!,
     print_game_state,nl,print_game_state_history.
     
 % End game
-handle_a_turn_helper(Option) :-     
+next_round_helper(Option) :-     
     get_turn_options(TurnOptions),
     nth1(6,TurnOptions,Option),!,
     assert(quit_clue_game).
